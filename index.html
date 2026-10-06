@@ -104,6 +104,11 @@ a{color:var(--accent)}
 .chip.pace{background:var(--accent-soft);color:var(--accent)}
 .chip.low{background:#fbf0dc;color:#9a6a12}
 .pempty{color:var(--muted);text-align:center;padding:28px 18px}
+.pdone{background:var(--accent-soft);color:var(--accent);border-radius:14px;padding:12px 16px;margin:4px 0 14px;font-size:14px}
+.pdone b{display:block;margin-bottom:2px}
+.pdone.part{background:#fbf0dc;color:#7a5410} .pdone.none{background:var(--surface2);color:var(--muted)} .pdone.none b{color:var(--ink)}
+.pstatus{display:inline-block;margin-top:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.pstatus.ok{background:var(--accent-soft);color:var(--accent)} .pstatus.warn{background:#fbf0dc;color:#9a6a12}
 #out{margin-top:14px}
 .pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
 .pstat{background:var(--surface);border-radius:18px;padding:16px 18px}
@@ -493,6 +498,11 @@ async function openPerson(name, fresh = false) {
     else if (hit) toast("Could not refresh: " + e.message);
   } finally { syncing(false); }
 }
+function statusChip(p) {
+  if (p.status === "Pushed") return `<span class="pstatus ok">✓ Pushed to PR form${p.pushedAt ? ` · ${when(p.pushedAt)}` : ""}</span>`;
+  if (p.status === "Reviewed") return `<span class="pstatus warn">Partly pushed</span>`;
+  return `<span class="pstatus">Not pushed yet</span>`;
+}
 function initDraft(list, saved, notes) {
   return list.map((c, i) => ({ answers: notes?.[i]?.answers ?? [], note: notes?.[i]?.note ?? "", score: saved?.[i] ?? null }));
 }
@@ -505,7 +515,7 @@ function renderPerson() {
           <button class="go" id="prevp" title="Previous member (left arrow)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg></button>
           <button class="go" id="nextp" title="Next member (right arrow)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></button></div>
         <div class="avatar">${initials(p.name)}</div>
-        <div style="flex:1;min-width:180px"><h2 style="font-size:28px">${esc(p.name)}</h2><div class="role">${esc(p.role)} · ${monthLabel(p.month)}</div></div>
+        <div style="flex:1;min-width:180px"><h2 style="font-size:28px">${esc(p.name)}</h2><div class="role">${esc(p.role)} · ${monthLabel(p.month)}</div>${statusChip(p)}</div>
         <div class="stat"><div class="label">KPI average</div><div class="val">${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</div></div>
         <div class="stat"><div class="label">Supervisor</div><div class="val">${p.sup.length ? fmt(avg(p.sup)) : "·"}</div></div>
         <div class="stat"><div class="label">Overall</div><div class="val">${o == null ? "·" : fmt(o, 0) + "%"}</div></div>
@@ -644,6 +654,7 @@ function panePush() {
   $("#pane").innerHTML = `
     <div class="card">
       <h3 style="font-size:22px">Send to the PR form</h3>
+      ${pushedNote(st.person)}
       <p class="muted">Writes Rating, Remarks and KPI Data Basis for ${monthLabel(st.month)}, plus the Supervisor and Character scores. Formulas are never touched. Cells that already have a value are skipped unless you tick Replace.</p>
       <div class="row"><button class="btn" id="prev">Preview</button><button class="btn primary" id="go">Push</button>
         <label class="row" style="gap:6px"><input type="checkbox" id="force"> Replace existing values</label></div>
@@ -656,12 +667,27 @@ function panePush() {
       const r = await api("push", { name: st.person.name, go, force: $("#force").checked });
       $("#out").innerHTML = r.data ? pushView(r.data) : `<div class="card pempty">${esc(r.message)}</div>`;
       document.querySelectorAll(".pkept-toggle").forEach((b) => (b.onclick = () => b.closest(".pgroup").classList.toggle("showkept")));
-      if (go) toast(r.data?.failed?.length ? "Pushed with some cells skipped" : "Pushed to the PR form");
+      if (go) {
+        toast(r.data?.failed?.length ? "Pushed with some cells skipped" : "Pushed to the PR form");
+        if (r.data?.items?.some((i) => i.state === "written")) {
+          st.person.status = r.data.failed?.length ? "Reviewed" : "Pushed"; st.person.pushedAt = Date.now();
+          const note = document.querySelector(".pdone"); if (note) note.outerHTML = pushedNote(st.person);
+          const chip = document.querySelector(".pstatus"); if (chip) chip.outerHTML = statusChip(st.person);
+        }
+      }
     } catch (e) { $("#out").innerHTML = `<div class="card pempty" style="color:var(--s1)">${esc(e.message)}</div>`; }
     finally { $("#prev").disabled = $("#go").disabled = false; }
   };
   $("#prev").onclick = () => run(false);
   $("#go").onclick = () => { if (confirm(`Write ${st.person.name}'s ${monthLabel(st.month)} review to the PR form?`)) run(true); };
+}
+
+const when = (t) => new Date(t).toLocaleString("en", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
+// Shows if and when this month was already written to the PR form
+function pushedNote(p) {
+  if (p.status === "Pushed") return `<div class="pdone"><b>✓ Already in the PR form</b>${p.pushedAt ? `Pushed ${when(p.pushedAt)}. ` : ""}Pushing again only fills empty cells, unless you tick Replace.</div>`;
+  if (p.status === "Reviewed") return `<div class="pdone part"><b>Partly pushed</b>${p.pushedAt ? `Last push ${when(p.pushedAt)}. ` : ""}Some cells were not written. Run a preview to see what is left.</div>`;
+  return `<div class="pdone none"><b>Not pushed yet</b>Nothing from ${monthLabel(st.month)} has been written to this PR form from the dashboard.</div>`;
 }
 
 // Preview or result of a push, grouped like the PR form tabs

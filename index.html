@@ -110,6 +110,10 @@ a{color:var(--accent)}
 .chip.pace{background:var(--accent-soft);color:var(--accent)}
 .chip.low{background:#fbf0dc;color:#9a6a12}
 .pempty{color:var(--muted);text-align:center;padding:28px 18px}
+.modal{position:fixed;inset:0;z-index:90;background:rgba(20,20,24,.35);display:grid;place-items:center;padding:16px;animation:fade .15s ease}
+.mbox{background:var(--surface);border-radius:22px;padding:22px 22px 18px;max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.mbox h3{font-size:19px;margin:0 0 6px} .mbox p{color:var(--muted);margin:0 0 18px;font-size:14px;line-height:1.5}
+.btn:disabled{opacity:.6;cursor:default}
 .pdone{background:var(--accent-soft);color:var(--accent);border-radius:14px;padding:12px 16px;margin:4px 0 14px;font-size:14px}
 .pdone b{display:block;margin-bottom:2px}
 .pdone.part{background:#fbf0dc;color:#7a5410} .pdone.none{background:var(--surface2);color:var(--muted)} .pdone.none b{color:var(--ink)}
@@ -267,6 +271,34 @@ const cache = {
   put(kind, name, v) { store.set(cache.key(kind, name), JSON.stringify({ at: Date.now(), v })); },
   clearMonth() { try { Object.keys(localStorage).filter((k) => k.startsWith(`dc:`) && k.includes(`:${st.month}:`)).forEach((k) => localStorage.removeItem(k)); } catch {} },
 };
+// Shows "Saving…" on a button while the request runs, so it is clear something is happening
+async function withBusy(btn, fn, label = "Saving…") {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = label;
+  try { await fn(); } finally { if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = old; } }
+}
+// Small in-page confirm box (resolves true or false)
+function askConfirm(title, text, yes = "Leave", no = "Stay") {
+  return new Promise((done) => {
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = `<div class="mbox"><h3>${esc(title)}</h3><p>${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="btn" data-a="0">${esc(no)}</button><button class="btn primary" data-a="1">${esc(yes)}</button></div></div>`;
+    const close = (v) => { m.remove(); document.removeEventListener("keydown", key, true); done(v); };
+    const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(false); } if (e.key === "Enter") { e.stopPropagation(); close(true); } };
+    m.onclick = (e) => { if (e.target === m) close(false); const a = e.target.closest("[data-a]"); if (a) close(a.dataset.a === "1"); };
+    document.addEventListener("keydown", key, true);
+    document.body.appendChild(m);
+    m.querySelector('[data-a="1"]').focus();
+  });
+}
+// Unsaved changes inside the member panel
+document.addEventListener("input", (e) => { if (e.target.closest && e.target.closest("#pview") && !["force"].includes(e.target.id)) st.dirty = true; });
+document.addEventListener("change", (e) => { if (e.target.closest && e.target.closest("#pview") && !["force"].includes(e.target.id)) st.dirty = true; });
+async function canLeave() {
+  if (!st.dirty) return true;
+  const ok = await askConfirm("Leave without saving?", `You have changes for ${first(st.person?.name || "this member")} that are not saved yet. If you leave now they will be lost.`);
+  if (ok) st.dirty = false;
+  return ok;
+}
 function syncing(on) { const el = $("#sync"); if (el) el.style.visibility = on ? "visible" : "hidden"; }
 async function api(action, body = {}) {
   if (!["team", "person"].includes(action)) cache.clearMonth();
@@ -330,14 +362,15 @@ function shell(inner, opts = {}) {
     <div id="view">${inner}</div>
   </div>
   <div class="drawer" id="drawer"><div class="dback" id="dback"></div><aside class="dpanel" role="dialog" aria-label="Team member review"><div id="pview"></div></aside></div>`;
-  $("#month").onchange = (e) => {
+  $("#month").onchange = async (e) => {
+    if (!(await canLeave())) { e.target.value = st.month; return; }
     st.month = e.target.value; store.set("dashMonth", st.month);
     const open = st.person?.name;
     loadTeam();
     if (open) openPerson(open);
   };
   $("#me").onclick = (e) => { e.stopPropagation(); $("#menu").classList.toggle("open"); };
-  $("#logout").onclick = () => { store.del("dashKey"); st.key = ""; st.person = null; document.body.classList.remove("locked"); renderLogin(); };
+  $("#logout").onclick = async () => { if (!(await canLeave())) return; store.del("dashKey"); st.key = ""; st.person = null; document.body.classList.remove("locked"); renderLogin(); };
   $("#refresh").onclick = () => { loadTeam(true); if (st.person) openPerson(st.person.name, true); };
   $("#dback").onclick = closePerson;
   document.querySelectorAll("[data-nav]").forEach((b) => (b.onclick = () => {
@@ -352,6 +385,7 @@ function shell(inner, opts = {}) {
 document.addEventListener("click", () => $("#menu")?.classList.remove("open"));
 document.addEventListener("keydown", (e) => {
   if (!st.person) return;
+  if (document.querySelector(".modal")) return;
   if (e.key === "Escape") closePerson();
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
   if (!typing && e.key === "ArrowRight") stepPerson(1);
@@ -362,13 +396,15 @@ function navActive() {
     st.person ? b.dataset.nav === st.tab || (b.dataset.nav === "sup" && st.tab === "char") : b.dataset.nav === "overview"));
 }
 // Move to the previous or next member without closing the panel
-function stepPerson(dir) {
+async function stepPerson(dir) {
   const list = st.order || [], i = list.indexOf(st.person?.name);
   if (i < 0 || !list.length) return;
+  if (!(await canLeave())) return;
   openPerson(list[(i + dir + list.length) % list.length]);
   $(".dpanel").scrollTop = 0;
 }
-function closePerson() {
+async function closePerson() {
+  if (!(await canLeave())) return;
   st.person = null;
   $("#drawer")?.classList.remove("open");
   document.body.classList.remove("locked");
@@ -477,7 +513,8 @@ function renderTeam() {
 
 // ---------- Person ----------
 async function openPerson(name, fresh = false) {
-  if (st.person?.name !== name) st.person = { name };
+  if (st.person?.name && st.person.name !== name && !(await canLeave())) return;
+  if (st.person?.name !== name) { st.person = { name }; st.dirty = false; }
   const month = st.month, hit = !fresh && cache.get("person", name);
   const show = (p) => {
     st.person = p;
@@ -564,10 +601,10 @@ function paneKpi() {
       <button class="btn primary" id="hrSave">Save HR data</button>
     </div></div>`;
   document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => editKpi(+b.dataset.edit)));
-  $("#hrSave").onclick = async () => {
-    try { await api("hr", { name: p.name, absent: +$("#hrA").value || 0, late: +$("#hrL").value || 0, da: +$("#hrD").value || 0 }); toast("HR data saved"); openPerson(p.name, true); }
-    catch (e) { toast(e.message); }
-  };
+  $("#hrSave").onclick = (ev) => withBusy(ev.currentTarget, async () => {
+    try { await api("hr", { name: p.name, absent: +$("#hrA").value || 0, late: +$("#hrL").value || 0, da: +$("#hrD").value || 0 }); st.dirty = false; toast("HR data saved"); openPerson(p.name, true); }
+    catch (e) { toast("Not saved: " + e.message); }
+  });
 }
 function editKpi(no) {
   const k = st.person.kpis.find((x) => x.no === no);
@@ -576,12 +613,12 @@ function editKpi(no) {
     <label>Remarks</label><input type="text" id="kr" value="${esc(k.remarks)}">
     <label>Data basis</label><input type="text" id="kb" value="${esc(k.basis)}" placeholder="Source name, add a link at the end if needed">
     <span></span><div class="row"><button class="btn primary" id="ksave">Save</button>${k.source === "Manual" ? `<button class="btn" id="kclear">Back to auto</button>` : ""}<button class="btn ghost" id="kcancel">Cancel</button></div></div>`;
-  $("#kcancel").onclick = paneKpi;
-  $("#ksave").onclick = async () => {
-    try { await api("kpi", { name: st.person.name, no, score: +$("#ks").value, remarks: $("#kr").value, basis: $("#kb").value }); toast("KPI saved"); openPerson(st.person.name, true); }
-    catch (e) { toast(e.message); }
-  };
-  if ($("#kclear")) $("#kclear").onclick = async () => { try { await api("kpi", { name: st.person.name, no, clear: true }); toast("Back to auto"); openPerson(st.person.name, true); } catch (e) { toast(e.message); } };
+  $("#kcancel").onclick = () => { st.dirty = false; paneKpi(); };
+  $("#ksave").onclick = (ev) => withBusy(ev.currentTarget, async () => {
+    try { await api("kpi", { name: st.person.name, no, score: +$("#ks").value, remarks: $("#kr").value, basis: $("#kb").value }); st.dirty = false; toast("KPI saved"); openPerson(st.person.name, true); }
+    catch (e) { toast("Not saved: " + e.message); }
+  });
+  if ($("#kclear")) $("#kclear").onclick = (ev) => withBusy(ev.currentTarget, async () => { try { await api("kpi", { name: st.person.name, no, clear: true }); st.dirty = false; toast("Back to auto"); openPerson(st.person.name, true); } catch (e) { toast("Not saved: " + e.message); } }, "Resetting…");
 }
 
 // Data hints shown above each criterion
@@ -635,7 +672,7 @@ function paneEval(kind) {
     btn.disabled = true; btn.textContent = "Saving…"; $("#evalState").textContent = "";
     try {
       await api("rate", { name: st.person.name, kind, scores, notes: JSON.stringify(d.map((x) => ({ answers: x.answers, note: x.note }))) });
-      st.person[kind] = scores; toast("Evaluation saved"); renderPerson();
+      st.person[kind] = scores; st.dirty = false; toast("Evaluation saved"); renderPerson();
     } catch (e) {
       btn.disabled = false; btn.textContent = label;
       $("#evalState").textContent = "Not saved: " + e.message + " ";
@@ -654,10 +691,9 @@ function paneLogs() {
       <button class="btn primary" id="ladd">Add</button></div>
       <p class="muted" style="margin:8px 0 0;font-size:13px">Logged today. For past dates, use Telegram: /log name 10/3 praise …</p></div>
     <div class="card">${logs.length ? logs.map((l) => `<div class="log"><span class="t t-${l.type}">${name(l.type)}</span><span class="muted" style="font-size:12px">${l.date ? new Date(l.date).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "Asia/Manila" }) : ""}</span><div style="margin-top:4px">${esc(l.note)}</div>${l.tags.length ? `<div class="src">#${l.tags.join(" #")}</div>` : ""}</div>`).join("") : `<p class="muted">No wins or coaching logged for ${monthLabel(st.month)} yet.</p>`}</div>`;
-  $("#ladd").onclick = async () => {
-    const note = $("#ln").value.trim(); if (!note) return;
-    try { await api("log", { name: st.person.name, type: $("#lt").value, note }); toast("Logged"); openPerson(st.person.name, true); } catch (e) { toast(e.message); }
-  };
+  $("#ladd").onclick = (ev) => { const note = $("#ln").value.trim(); if (!note) return toast("Write a note first"); return withBusy(ev.currentTarget, async () => {
+    try { await api("log", { name: st.person.name, type: $("#lt").value, note }); st.dirty = false; toast("Logged"); openPerson(st.person.name, true); } catch (e) { toast("Not saved: " + e.message); }
+  }); };
 }
 
 function panePush() {
@@ -694,7 +730,7 @@ function panePush() {
     finally { $("#prev").disabled = $("#go").disabled = false; }
   };
   $("#prev").onclick = () => run(false);
-  $("#go").onclick = () => { if (confirm(`Write ${st.person.name}'s ${monthLabel(st.month)} review to the PR form?`)) run(true); };
+  $("#go").onclick = async () => { if (await askConfirm("Push to the PR form?", `This writes ${first(st.person.name)}'s ${monthLabel(st.month)} review into the PR form.`, "Push", "Cancel")) run(true); };
 }
 
 const when = (t) => new Date(t).toLocaleString("en", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });

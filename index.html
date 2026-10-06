@@ -312,7 +312,10 @@ function shell(inner, opts = {}) {
   document.querySelectorAll("[data-nav]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.nav;
     if (k === "overview") return closePerson();
-    if (st.person?.kpis) { st.tab = k; renderPerson(); } else toast("Pick a team member first");
+    if (st.person?.kpis) { st.tab = k; renderPerson(); return; }
+    // No one open yet: start with the first member on that tab, then use the arrows to go through the team
+    const firstName = (st.order || [])[0];
+    if (firstName) { st.tab = k; openPerson(firstName); } else toast("Loading the team, try again in a moment");
   }));
 }
 document.addEventListener("click", () => $("#menu")?.classList.remove("open"));

@@ -140,7 +140,7 @@ tr.grp td span{font-weight:400;color:var(--muted);margin-left:10px}
 .t-Incident{background:#fbe8e5;color:var(--s1)}
 .t-Note{background:var(--surface2);color:var(--muted)}
 pre.out{white-space:pre-wrap;background:var(--surface2);border-radius:16px;padding:16px;font:13px/1.5 ui-monospace,Menlo,monospace;max-height:420px;overflow:auto}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:80;max-width:90vw}
 .toast.show{opacity:1}
 .login{max-width:400px;margin:14vh auto;text-align:center;padding:36px}
 .login input{width:100%;margin:18px 0 10px;text-align:center}
@@ -587,11 +587,17 @@ function paneEval(kind) {
   });
   $("#saveEval").onclick = async () => {
     const scores = d.map((x) => x.score);
-    if (scores.some((x) => !x)) { $("#evalState").textContent = `Set a final score for all ${list.length} criteria first. `; return; }
+    if (scores.some((x) => !x)) { $("#evalState").textContent = `Set a final score for all ${list.length} criteria first. `; toast("Set a final score for every criterion first"); return; }
+    const btn = $("#saveEval"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Saving…"; $("#evalState").textContent = "";
     try {
       await api("rate", { name: st.person.name, kind, scores, notes: JSON.stringify(d.map((x) => ({ answers: x.answers, note: x.note }))) });
       st.person[kind] = scores; toast("Evaluation saved"); renderPerson();
-    } catch (e) { toast(e.message); }
+    } catch (e) {
+      btn.disabled = false; btn.textContent = label;
+      $("#evalState").textContent = "Not saved: " + e.message + " ";
+      toast("Not saved: " + e.message);
+    }
   };
 }
 

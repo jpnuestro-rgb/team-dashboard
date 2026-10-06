@@ -654,13 +654,24 @@ function paneEval(kind) {
         </div></div>`;
     }).join("")}
     <div class="row" style="justify-content:flex-end;margin-top:8px"><span class="muted" id="evalState"></span><button class="btn primary" id="saveEval">Save ${kind === "sup" ? "Supervisor" : "Character"} evaluation</button></div>`;
-  document.querySelectorAll(`#pane input[type=radio]`).forEach((r) => (r.onchange = () => {
+  const setAns = (r, val) => {
     const [i, qi] = r.name.slice(1).split("_").map(Number);
-    d[i].answers[qi] = +r.value;
-    const sug = Math.round(avg(d[i].answers.filter(Boolean)));
-    const s = $("#sug" + i); s.textContent = sug; s.className = "score " + cls(sug);
-    if (d[i].answers.filter(Boolean).length === list[i].qs.length && !d[i].manual) { d[i].score = sug; $("#fin" + i).value = sug; }
-  }));
+    d[i].answers[qi] = val;
+    const got = d[i].answers.filter(Boolean), sug = got.length ? Math.round(avg(got)) : null;
+    const s = $("#sug" + i); s.textContent = sug ?? "·"; s.className = "score " + cls(sug);
+    if (!d[i].manual) {
+      if (got.length === list[i].qs.length) { d[i].score = sug; $("#fin" + i).value = sug; }
+      else if (val === null) { d[i].score = null; $("#fin" + i).value = ""; }
+    }
+  };
+  document.querySelectorAll(`#pane input[type=radio]`).forEach((r) => {
+    const lab = r.closest("label");
+    lab.addEventListener("pointerdown", () => (r.dataset.was = r.checked ? "1" : ""));
+    r.addEventListener("click", () => {
+      if (r.dataset.was === "1") { r.checked = false; r.dataset.was = ""; st.dirty = true; setAns(r, null); }
+    });
+    r.onchange = () => setAns(r, +r.value);
+  });
   list.forEach((_, i) => {
     $("#fin" + i).onchange = (e) => { d[i].score = e.target.value ? +e.target.value : null; d[i].manual = true; };
     $("#note" + i).oninput = (e) => (d[i].note = e.target.value);

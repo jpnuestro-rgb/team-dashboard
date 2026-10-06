@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Team Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e9e9eb; --frame:#f4f4f5; --surface:#ffffff; --surface2:#f1f1f3; --line:#ececee; --ink:#18181b; --muted:#8a8a93; --soft:#b4b4bb;
+  --accent:#157a4c; --accent2:#1f9a62; --accent-soft:#e5f3eb; --bar:#9ccbb2;
+  --s5:#157a4c; --s4:#4f9f63; --s3:#d19a1e; --s2:#e07a3a; --s1:#d14b3f; --none:#d6d6db;
+  --r:24px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Outfit,Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em}
+button,select,input,textarea{font:inherit;color:inherit}
+.frame{max-width:1280px;margin:20px auto;background:var(--frame);border-radius:32px;padding:20px 24px 48px}
+.wrap{max-width:none}
+.topbar{background:var(--surface);border-radius:var(--r);display:flex;align-items:center;gap:16px;padding:12px 14px 12px 20px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:19px;color:var(--accent);white-space:nowrap}
+.logo i{width:34px;height:34px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-size:15px}
+.nav{display:flex;gap:4px;background:var(--surface2);border-radius:999px;padding:5px;margin:0 auto;overflow-x:auto}
+.nav button{border:none;background:none;border-radius:999px;padding:8px 18px;cursor:pointer;color:#55555d;white-space:nowrap}
+.nav button.active{background:var(--surface);color:var(--ink);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.iconbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--surface2);display:grid;place-items:center;cursor:pointer;flex:none}
+.iconbtn svg{width:18px;height:18px}
+.me{width:42px;height:42px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:600;flex:none}
+.hello{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:30px 4px 22px}
+.hello h1{font-size:40px;flex:1;min-width:260px}
+.hello h1 span{color:var(--muted)}
+.pillsel{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:999px;padding:6px 8px 6px 16px}
+.pillsel select{border:none;background:transparent;padding:6px 4px;outline:none;cursor:pointer}
+select,input[type=text],input[type=password],input[type=number],textarea{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 18px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.card{background:var(--surface);border-radius:var(--r);padding:22px}
+.ctitle{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.ctitle h3{font-size:17px;font-weight:500}
+.ctitle p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.ctitle .spacer{flex:1}
+.go{width:38px;height:38px;border-radius:50%;border:none;background:var(--surface2);display:grid;place-items:center;cursor:pointer;flex:none}
+.dash{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+.stack{display:flex;flex-direction:column;gap:16px}
+.hero{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-radius:20px;padding:20px;position:relative;overflow:hidden}
+.hero .lbl{font-size:13px;opacity:.85}
+.hero .num{font-size:46px;font-weight:500;line-height:1.1;margin:10px 0 18px}
+.hero .num small{font-size:20px;opacity:.7}
+.hero .foot{display:flex;justify-content:space-between;font-size:13px;opacity:.9}
+.hero:after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.08)}
+.num-lg{font-size:40px;font-weight:500;line-height:1}
+.num-lg span{color:var(--soft)}
+.badge{display:inline-block;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff}
+.badge.soft{background:var(--accent-soft);color:var(--accent)}
+.badge.warn{background:#fdf0e6;color:var(--s2)}
+.badge.grey{background:var(--surface2);color:var(--muted)}
+.chart{display:flex;align-items:flex-end;gap:14px;height:230px;padding:10px 4px 0 34px;position:relative}
+.chart .grid{position:absolute;left:0;right:0;border-top:1px dashed var(--line);font-size:11px;color:var(--soft)}
+.chart .grid span{position:absolute;left:0;top:-9px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;cursor:pointer;z-index:1}
+.bar .b{width:100%;max-width:56px;border-radius:999px;background:repeating-linear-gradient(135deg,var(--bar) 0 6px,#a9d3bc 6px 12px);transition:filter .15s}
+.bar.top .b{background:repeating-linear-gradient(135deg,var(--accent) 0 6px,#1b8a56 6px 12px)}
+.bar .b.empty{background:var(--surface2)}
+.bar:hover .b{filter:brightness(.95)}
+.bar .tip{position:absolute;background:var(--accent);color:#fff;font-size:12px;padding:2px 9px;border-radius:999px;white-space:nowrap;transform:translateY(-130%)}
+.bar .nm{position:absolute;bottom:-26px;font-size:12px;color:var(--muted);white-space:nowrap}
+.prog{margin:14px 0}
+.prog .top{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.prog .track{height:10px;border-radius:999px;background:var(--surface2);overflow:hidden}
+.prog .fill{height:100%;border-radius:999px;background:var(--accent)}
+table{width:100%;border-collapse:collapse}
+td,th{padding:12px 10px;text-align:left;vertical-align:middle}
+th{font-size:13px;color:var(--muted);font-weight:400}
+tbody tr{cursor:pointer;border-radius:14px}
+tbody tr:hover td{background:var(--surface2)}
+tbody tr td:first-child{border-radius:14px 0 0 14px}
+tbody tr td:last-child{border-radius:0 14px 14px 0}
+.who{display:flex;align-items:center;gap:12px}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:600;font-size:14px;flex:none}
+.name{font-weight:500}
+.role{color:var(--muted);font-size:12.5px}
+.dot{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.dot:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--none)}
+.dot.ok:before{background:#35c37a}.dot.warn:before{background:var(--s2)}
+.attn{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:var(--surface2);margin-bottom:10px}
+.faces{display:flex;margin-top:6px}
+.faces .avatar{border:3px solid var(--surface2);margin-left:-8px}
+.faces .avatar:first-child{margin-left:0}
+.score{width:34px;height:30px;border-radius:10px;display:inline-grid;place-items:center;color:#fff;font-weight:600;background:var(--none);flex:none}
+.score.s5{background:var(--s5)}.score.s4{background:var(--s4)}.score.s3{background:var(--s3)}.score.s2{background:var(--s2)}.score.s1{background:var(--s1)}
+.minis{display:flex;gap:4px}
+.mini{width:10px;height:22px;border-radius:999px;background:var(--none)}
+.mini.s5{background:var(--s5)}.mini.s4{background:var(--s4)}.mini.s3{background:var(--s3)}.mini.s2{background:var(--s2)}.mini.s1{background:var(--s1)}
+.src{font-size:12px;color:var(--muted)}
+a{color:var(--accent)}
+.chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.muted{color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.phead .avatar{width:58px;height:58px;font-size:20px}
+.stat{background:var(--surface2);border-radius:18px;padding:12px 18px;min-width:120px}
+.stat .label{color:var(--muted);font-size:12.5px}
+.stat .val{font-size:26px;font-weight:500}
+.tabs{display:flex;gap:4px;background:var(--surface);border-radius:999px;padding:5px;margin:18px 0;overflow-x:auto;width:max-content;max-width:100%}
+.tab{border:none;background:none;border-radius:999px;padding:9px 18px;cursor:pointer;color:#55555d;white-space:nowrap}
+.tab.active{background:var(--accent);color:#fff}
+.krow{display:flex;gap:14px;align-items:flex-start;padding:16px 0;border-bottom:1px solid var(--line)}
+.krow:last-child{border-bottom:none}
+.crit{background:var(--surface);border-radius:var(--r);padding:22px;margin-bottom:14px}
+.crit h3{font-size:19px}
+.crit .desc{color:var(--muted);font-size:13px;margin:2px 0 12px}
+.hint{background:var(--accent-soft);border-radius:14px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+.hint b{color:var(--accent);font-weight:500}
+.q{margin:14px 0}
+.q .qt{margin-bottom:8px}
+.scale{display:flex;gap:6px;flex-wrap:wrap}
+.scale label{flex:1;min-width:84px;border-radius:999px;padding:8px 6px;text-align:center;cursor:pointer;font-size:13px;background:var(--surface2)}
+.scale input{display:none}
+.scale label:has(input:checked){background:var(--accent);color:#fff}
+.result{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.log{padding:12px 0;border-bottom:1px solid var(--line)}
+.log .t{font-size:12px;font-weight:500;padding:2px 10px;border-radius:999px;margin-right:6px}
+.t-Praise{background:var(--accent-soft);color:var(--accent)}
+.t-Coaching{background:#fbf3df;color:#a8790f}
+.t-Incident{background:#fbe8e5;color:var(--s1)}
+.t-Note{background:var(--surface2);color:var(--muted)}
+pre.out{white-space:pre-wrap;background:var(--surface2);border-radius:16px;padding:16px;font:13px/1.5 ui-monospace,Menlo,monospace;max-height:420px;overflow:auto}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw}
+.toast.show{opacity:1}
+.login{max-width:400px;margin:14vh auto;text-align:center;padding:36px}
+.login input{width:100%;margin:18px 0 10px;text-align:center}
+.loading{color:var(--muted);padding:60px 0;text-align:center}
+.edit{display:grid;grid-template-columns:90px 1fr;gap:8px;margin-top:10px}
+.edit input,.edit select{width:100%}
+@media (max-width:980px){ .c3,.c4,.c5,.c6,.c7,.c8{grid-column:span 12} }
+@media (max-width:720px){
+  .frame{margin:0;border-radius:0;padding:12px 12px 40px}
+  .topbar{flex-wrap:wrap;padding:12px}
+  .nav{order:3;width:100%;margin:0}
+  .hello h1{font-size:30px}
+  .hide-sm{display:none}
+  .chart{gap:8px;padding-left:26px}
+  td,th{padding:10px 6px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "https://mjyzsxjfppuhvkqspjvn.supabase.co/functions/v1/lead-bot/api/";
+const KPI_SHORT = ["", "Outline", "Time", "Output", "Quality", "Base", "Attend", "Policy"];
+
+// Evaluation criteria, in the same order as the PR form rows
+const SUP = [
+  { name: "Communication Skills", desc: "Two way communication, clear updates, listens and responds well.", hint: ["coaching", "#communication"],
+    qs: ["Gives clear status updates without you having to ask.", "Raises blockers or changes early instead of after the fact.", "Responds to feedback calmly and acts on it."] },
+  { name: "Creative & Innovative Thinking", desc: "Fresh ideas that solve problems and move the brand forward.", hint: ["kpi1", "praise"],
+    qs: ["Brings new angles or formats instead of repeating old ones.", "Ideas fit the brand and need little reworking.", "Suggests improvements to the process, not just the content."] },
+  { name: "Customer Centricity", desc: "Delivers quality work for internal customers (Marketing, PR, editors).", hint: ["kpi4", "kpi1"],
+    qs: ["Work passes the Marketing Manager review with few revisions.", "Handles requests from other teams with a solution and a timeline.", "Thinks about the audience and the buyer, not only the task."] },
+  { name: "Teamwork & Cooperation", desc: "Works cooperatively and supports the team's goals.", hint: ["#teamwork", "praise"],
+    qs: ["Hands off work cleanly so the next person can start right away.", "Helps teammates when they are behind.", "Keeps a positive tone in group chats and meetings."] },
+  { name: "Execution of Result", desc: "Relentlessly pursues results and delivers on commitments.", hint: ["kpi3", "kpi2"],
+    qs: ["Delivers the expected volume without you following up.", "Finishes what was committed, on the agreed date.", "Pushes work to done, not just to submitted."] },
+];
+const CHAR = [
+  { name: "Accountability and Ownership", desc: "Takes responsibility for outcomes, including mistakes.", hint: ["coaching", "kpi5"],
+    qs: ["Owns mistakes first before explaining the context.", "Follows through on feedback without being reminded."] },
+  { name: "Respect and Inclusivity", desc: "How they treat teammates and other departments.", hint: ["callout"],
+    qs: ["Treats every teammate and department with respect.", "Disagrees in a constructive, private way when needed."] },
+  { name: "Trustworthiness and Discretion", desc: "Honesty, ethics and care with sensitive information.", hint: ["callout", "hr"],
+    qs: ["You can rely on what they report to be accurate.", "Handles confidential or sensitive matters properly."] },
+  { name: "Collaboration and Teamwork", desc: "How effectively they work with others to reach shared goals.", hint: ["#teamwork", "praise"],
+    qs: ["Works well with editors, strategists and other teams.", "Shares information so others are not blocked."] },
+  { name: "Adaptability and Resilience", desc: "Response to change, pressure and setbacks.", hint: ["kpi4"],
+    qs: ["Adjusts quickly when direction or priorities change.", "Stays productive under pressure or tight deadlines."] },
+  { name: "Emotional Intelligence and Openness", desc: "Self awareness, empathy and openness to feedback.", hint: ["coaching"],
+    qs: ["Receives feedback without getting defensive.", "Reads the room and adjusts how they communicate."] },
+  { name: "Communication and Approachability", desc: "Clarity, tone and openness to being approached.", hint: ["#communication"],
+    qs: ["Easy for others to approach with questions or requests.", "Messages are clear and the tone is professional."] },
+  { name: "Reliability and Dependability", desc: "Consistency of output and presence.", hint: ["kpi2", "hr"],
+    qs: ["Delivers consistently week to week, not in bursts.", "Present and reachable during work hours."] },
+  { name: "Initiative and Proactivity", desc: "Drive to identify problems and act without being told.", hint: ["kpi3", "praise"],
+    qs: ["Spots problems or opportunities before you point them out.", "Starts the next task without waiting to be assigned."] },
+  { name: "Diligence and Quality Mindset", desc: "Care, thoroughness and pride in their work.", hint: ["kpi4", "kpi5"],
+    qs: ["Checks their own work before submitting.", "Keeps records and trackers accurate and updated."] },
+];
+const SCALE = [[5, "Always"], [4, "Usually"], [3, "Sometimes"], [2, "Rarely"], [1, "Never"]];
+const SCORE_LABEL = { 5: "Exceptional", 4: "Advanced", 3: "Significant", 2: "Developing", 1: "Unacceptable" };
+
+const st = { key: "", month: "", team: null, person: null, tab: "kpi", draft: {} };
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2600); }
+async function api(action, body = {}) {
+  const r = await fetch(API + action, { method: "POST", headers: { "content-type": "application/json", "x-dash-key": st.key }, body: JSON.stringify({ month: st.month, ...body }) });
+  const j = await r.json().catch(() => ({ error: "Bad response" }));
+  if (r.status === 401) { store.del("dashKey"); st.key = ""; renderLogin("Wrong passcode."); throw new Error("Wrong passcode"); }
+  if (!r.ok || j.error) throw new Error(j.error || "Request failed");
+  return j;
+}
+const cls = (s) => (s ? "s" + s : "");
+const fmt = (n, d = 1) => (n == null ? "Not yet" : Number(n).toFixed(d));
+const initials = (n) => n.split(" ").map((x) => x[0]).slice(0, 2).join("");
+const avg = (a) => (a && a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+function overall(p) {
+  const k = p.kpiAvg, s = avg(p.sup);
+  if (k == null || s == null) return null;
+  return (k / 5) * 70 + (s / 5) * 30;
+}
+function months() {
+  const out = [], d = new Date(Date.now() + 8 * 3600e3);
+  for (let i = 0; i < 6; i++) { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1)); out.push(`${x.getUTCFullYear()}/${String(x.getUTCMonth() + 1).padStart(2, "0")}`); }
+  return out;
+}
+const monthLabel = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5) - 1, 1)).toLocaleString("en", { month: "long", year: "numeric", timeZone: "UTC" });
+
+// ---------- Login ----------
+function renderLogin(err = "") {
+  document.getElementById("app").innerHTML = `
+  <div class="frame"><div class="card login">
+    <div class="logo" style="justify-content:center"><i>h</i>Team Dashboard</div>
+    <p class="muted" style="margin:8px 0 0">hiessēnce Creative, private</p>
+    <input type="password" id="pw" placeholder="Passcode" autocomplete="current-password">
+    <button class="btn primary" id="go" style="width:100%">Open</button>
+    <p style="color:var(--s1);min-height:20px">${esc(err)}</p>
+  </div></div>`;
+  const go = () => { st.key = $("#pw").value.trim(); if (!st.key) return; store.set("dashKey", st.key); loadTeam(); };
+  $("#go").onclick = go; $("#pw").onkeydown = (e) => { if (e.key === "Enter") go(); }; $("#pw").focus();
+}
+
+// ---------- Shell ----------
+const ICON = {
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M8 7h9v9"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+};
+function shell(inner, opts = {}) {
+  const nav = [["overview", "Overview"], ["kpi", "KPI"], ["sup", "Evaluations"], ["push", "PR forms"]];
+  document.getElementById("app").innerHTML = `
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo"><i>h</i>hiessēnce</div>
+      <div class="nav">${nav.map(([k, l]) => `<button data-nav="${k}" class="${(st.person ? (k === "overview" ? "" : st.tab === k || (k === "sup" && st.tab === "char") ? "active" : "") : k === "overview" ? "active" : "")}">${l}</button>`).join("")}</div>
+      <button class="iconbtn" id="refresh" title="Refresh">${ICON.refresh}</button>
+      <button class="iconbtn" id="lock" title="Lock">${ICON.lock}</button>
+      <div class="me">JP</div>
+    </div>
+    <div class="hello">
+      <h1>${opts.title ?? `Welcome back, <span>John Pol</span>`}</h1>
+      <div class="pillsel">${ICON.cal}<select id="month">${months().map((m) => `<option value="${m}" ${m === st.month ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div>
+    </div>
+    <div id="view">${inner}</div>
+  </div>`;
+  $("#month").onchange = (e) => { st.month = e.target.value; store.set("dashMonth", st.month); st.person ? openPerson(st.person.name) : loadTeam(); };
+  $("#lock").onclick = () => { store.del("dashKey"); st.key = ""; renderLogin(); };
+  $("#refresh").onclick = () => (st.person ? openPerson(st.person.name) : loadTeam());
+  document.querySelectorAll("[data-nav]").forEach((b) => (b.onclick = () => {
+    const k = b.dataset.nav;
+    if (k === "overview") return loadTeam();
+    if (st.person) { st.tab = k; renderPerson(); } else toast("Pick a team member first");
+  }));
+}
+
+// ---------- Team overview ----------
+async function loadTeam() {
+  st.person = null;
+  shell(`<div class="loading">Loading ${monthLabel(st.month)}…</div>`);
+  try { st.team = await api("team"); renderTeam(); }
+  catch (e) { if (st.key) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
+}
+const split = (n, d = 1) => { if (n == null) return `<span>·</span>`; const [a, b] = Number(n).toFixed(d).split("."); return b ? `${a}<span>.${b}</span>` : a; };
+const first = (n) => n.split(" ")[0].replace(/"/g, "");
+function renderTeam() {
+  const ppl = st.team.people.filter((p) => !p.error);
+  const n = ppl.length || 1;
+  const done = ppl.filter((p) => p.sup?.length && p.char?.length).length;
+  const pushed = ppl.filter((p) => p.status === "Pushed").length;
+  const hr = ppl.filter((p) => p.hr).length;
+  const teamAvg = avg(ppl.map((p) => p.kpiAvg).filter((x) => x != null));
+  const wins = ppl.reduce((a, p) => a + p.logCounts.praise, 0), coach = ppl.reduce((a, p) => a + p.logCounts.coaching, 0);
+  const best = Math.max(...ppl.map((p) => p.kpiAvg ?? 0));
+  // KPIs scoring 2 or below, worst first
+  const attention = ppl.flatMap((p) => p.kpis.filter((k) => k.score != null && k.score <= 2).map((k) => ({ p, k }))).sort((a, b) => a.k.score - b.k.score).slice(0, 4);
+  const status = (p) => p.status === "Pushed" ? `<span class="dot ok">Pushed</span>` : p.sup.length && p.char.length ? `<span class="dot ok">Ready to push</span>` : p.sup.length || p.char.length ? `<span class="dot warn">In progress</span>` : `<span class="dot">Not started</span>`;
+  $("#view").innerHTML = `
+  <div class="dash">
+    <div class="c3 stack">
+      <div class="card">
+        <div class="ctitle"><div><h3>Team KPI</h3><p>Average of all scored KPIs</p></div></div>
+        <div class="hero"><div class="lbl">${monthLabel(st.month)}</div>
+          <div class="num">${teamAvg == null ? "No data" : `${fmt(teamAvg)}<small> / 5</small>`}</div>
+          <div class="foot"><span>${ppl.length} members</span><span>${ppl.filter((p) => p.kpiAvg != null).length} with data</span></div></div>
+      </div>
+      <div class="card"><div class="muted" style="font-size:13px">Logged this month</div>
+        <div class="row" style="justify-content:space-between;margin-top:6px"><div class="num-lg" style="font-size:30px">${wins} <span style="font-size:16px">wins</span></div><span class="badge soft">${coach} coaching</span></div></div>
+    </div>
+    <div class="c6 card">
+      <div class="ctitle"><div><h3>KPI average per member</h3><p>Out of 5, from the Pipeline, HR data and your overrides</p></div></div>
+      <div class="chart">
+        ${[5, 4, 3, 2, 1].map((v) => `<div class="grid" style="bottom:${(v / 5) * 100}%"><span>${v}</span></div>`).join("")}
+        ${ppl.map((p) => { const v = p.kpiAvg; const top = v != null && v === best && best > 0;
+          return `<div class="bar ${top ? "top" : ""}" data-name="${esc(p.name)}" title="${esc(p.name)}: ${v == null ? "no data" : fmt(v)}">
+            ${top ? `<div class="tip" style="bottom:${(v / 5) * 100}%">${fmt(v)}</div>` : ""}
+            <div class="b ${v == null ? "empty" : ""}" style="height:${v == null ? 8 : Math.max(8, (v / 5) * 100)}%"></div>
+            <div class="nm">${esc(first(p.name))}</div></div>`; }).join("")}
+      </div><div style="height:26px"></div>
+    </div>
+    <div class="c3 card">
+      <div class="ctitle"><div><h3>Review progress</h3><p>${monthLabel(st.month)}</p></div></div>
+      <div class="num-lg">${Math.round(((done + hr + pushed) / (3 * n)) * 100)}<span>%</span></div>
+      ${[["Evaluations done", done], ["HR data in", hr], ["Pushed to PR form", pushed]].map(([l, v]) => `
+        <div class="prog"><div class="top"><span>${l}</span><span class="muted">${v}/${n}</span></div><div class="track"><div class="fill" style="width:${(v / n) * 100}%"></div></div></div>`).join("")}
+    </div>
+    <div class="c8 card">
+      <div class="ctitle"><div><h3>Team</h3><p>Tap a member to review</p></div></div>
+      <table><thead><tr><th>Name</th><th class="hide-sm">KPIs</th><th>Avg</th><th class="hide-sm">HR</th><th>Status</th></tr></thead>
+      <tbody>${ppl.map((p) => `<tr data-name="${esc(p.name)}">
+        <td><div class="who"><div class="avatar">${initials(p.name)}</div><div><div class="name">${esc(p.name)}</div><div class="role">${esc(p.role)}</div></div></div></td>
+        <td class="hide-sm"><div class="minis">${p.kpis.map((k) => `<div class="mini ${cls(k.score)}" title="${esc(k.name)}: ${k.score ?? "no score"}"></div>`).join("")}</div></td>
+        <td><b>${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</b></td>
+        <td class="hide-sm">${p.hr ? `<span class="badge soft">In</span>` : `<span class="badge warn">Missing</span>`}</td>
+        <td>${status(p)}</td></tr>`).join("")}</tbody></table>
+    </div>
+    <div class="c4 card">
+      <div class="ctitle"><div><h3>Needs attention</h3><p>KPIs at 2 or below</p></div></div>
+      ${attention.length ? attention.map(({ p, k }) => `<div class="attn" data-name="${esc(p.name)}" style="cursor:pointer"><span class="score ${cls(k.score)}">${k.score}</span><div><div class="name" style="font-size:14px">${esc(first(p.name))} · ${esc(k.name)}</div><div class="src">${esc(k.remarks)}</div></div></div>`).join("") : `<p class="muted">Nothing below 3 this month.</p>`}
+      <div class="attn" style="display:block"><div class="name" style="font-size:14px">No HR data yet</div>
+        <div class="faces">${ppl.filter((p) => !p.hr).slice(0, 6).map((p) => `<div class="avatar" title="${esc(p.name)}">${initials(p.name)}</div>`).join("") || `<span class="muted" style="font-size:13px">Everyone is in.</span>`}</div></div>
+    </div>
+  </div>`;
+  document.querySelectorAll("[data-name]").forEach((c) => (c.onclick = () => openPerson(c.dataset.name)));
+}
+
+// ---------- Person ----------
+async function openPerson(name) {
+  if (st.person?.name !== name) st.person = { name };
+  shell(`<div class="loading">Loading ${esc(name)}…</div>`, { title: `Review, <span>${esc(first(name))}</span>` });
+  try {
+    st.person = await api("person", { name });
+    let notes = {}; try { notes = JSON.parse(st.person.notes || "{}"); } catch {}
+    st.draft = { sup: initDraft(SUP, st.person.sup, notes.sup), char: initDraft(CHAR, st.person.char, notes.char) };
+    renderPerson();
+  } catch (e) { $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
+}
+function initDraft(list, saved, notes) {
+  return list.map((c, i) => ({ answers: notes?.[i]?.answers ?? [], note: notes?.[i]?.note ?? "", score: saved?.[i] ?? null }));
+}
+function renderPerson() {
+  const p = st.person, o = overall(p);
+  $("#view").innerHTML = `
+    <div class="card">
+      <div class="phead">
+        <button class="go" id="back" title="Back to team"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="avatar">${initials(p.name)}</div>
+        <div style="flex:1;min-width:180px"><h2 style="font-size:28px">${esc(p.name)}</h2><div class="role">${esc(p.role)} · ${monthLabel(p.month)}</div></div>
+        <div class="stat"><div class="label">KPI average</div><div class="val">${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</div></div>
+        <div class="stat"><div class="label">Supervisor</div><div class="val">${p.sup.length ? fmt(avg(p.sup)) : "·"}</div></div>
+        <div class="stat"><div class="label">Overall</div><div class="val">${o == null ? "·" : fmt(o, 0) + "%"}</div></div>
+      </div>
+    </div>
+    <div class="tabs">${[["kpi", "KPI"], ["sup", "Supervisor"], ["char", "Character"], ["logs", "Wins & coaching"], ["push", "PR form"]].map(([k, l]) => `<button class="tab ${st.tab === k ? "active" : ""}" data-t="${k}">${l}</button>`).join("")}</div>
+    <div id="pane"></div>`;
+  $("#back").onclick = loadTeam;
+  document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { st.tab = b.dataset.t; renderPerson(); }));
+  document.querySelectorAll("[data-nav]").forEach((b) => b.classList.toggle("active", b.dataset.nav === st.tab || (b.dataset.nav === "sup" && st.tab === "char")));
+  ({ kpi: paneKpi, sup: () => paneEval("sup"), char: () => paneEval("char"), logs: paneLogs, push: panePush })[st.tab]();
+}
+
+function paneKpi() {
+  const p = st.person;
+  $("#pane").innerHTML = `
+  <div class="card" style="padding:6px 18px">
+    ${p.kpis.map((k) => `<div class="krow">
+      <span class="score ${cls(k.score)}">${k.score ?? "?"}</span>
+      <div style="flex:1;min-width:0">
+        <div class="row" style="gap:8px"><b>${k.no}. ${esc(k.name)}</b><span class="chip">${k.source}</span></div>
+        <div style="margin-top:2px">${esc(k.remarks)}</div>
+        <div class="src">${k.basisLink ? `<a href="${esc(k.basisLink)}" target="_blank" rel="noopener">${esc(k.basis || "Source")}</a>` : esc(k.basis)}</div>
+        <div id="ed${k.no}"></div></div>
+      ${k.no <= 5 ? `<button class="btn" data-edit="${k.no}">Edit</button>` : ""}</div>`).join("")}
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3 style="font-size:22px">HR data</h3>
+    <p class="muted" style="margin:4px 0 12px">From HR Kimmy (attendance) and the HR Lead (disciplinary actions). Sets KPI 6 and 7.</p>
+    <div class="row">
+      <label>Absences <input type="number" min="0" id="hrA" value="${p.hr?.absent ?? ""}" style="width:80px"></label>
+      <label>Lates <input type="number" min="0" id="hrL" value="${p.hr?.late ?? ""}" style="width:80px"></label>
+      <label>Disciplinary actions <input type="number" min="0" id="hrD" value="${p.hr?.da ?? ""}" style="width:80px"></label>
+      <button class="btn primary" id="hrSave">Save HR data</button>
+    </div></div>`;
+  document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => editKpi(+b.dataset.edit)));
+  $("#hrSave").onclick = async () => {
+    try { await api("hr", { name: p.name, absent: +$("#hrA").value || 0, late: +$("#hrL").value || 0, da: +$("#hrD").value || 0 }); toast("HR data saved"); openPerson(p.name); }
+    catch (e) { toast(e.message); }
+  };
+}
+function editKpi(no) {
+  const k = st.person.kpis.find((x) => x.no === no);
+  $("#ed" + no).innerHTML = `<div class="edit">
+    <label>Score</label><select id="ks">${[5, 4, 3, 2, 1].map((n) => `<option ${n === k.score ? "selected" : ""}>${n}</option>`).join("")}</select>
+    <label>Remarks</label><input type="text" id="kr" value="${esc(k.remarks)}">
+    <label>Data basis</label><input type="text" id="kb" value="${esc(k.basis)}" placeholder="Source name, add a link at the end if needed">
+    <span></span><div class="row"><button class="btn primary" id="ksave">Save</button>${k.source === "Manual" ? `<button class="btn" id="kclear">Back to auto</button>` : ""}<button class="btn ghost" id="kcancel">Cancel</button></div></div>`;
+  $("#kcancel").onclick = paneKpi;
+  $("#ksave").onclick = async () => {
+    try { await api("kpi", { name: st.person.name, no, score: +$("#ks").value, remarks: $("#kr").value, basis: $("#kb").value }); toast("KPI saved"); openPerson(st.person.name); }
+    catch (e) { toast(e.message); }
+  };
+  if ($("#kclear")) $("#kclear").onclick = async () => { try { await api("kpi", { name: st.person.name, no, clear: true }); toast("Back to auto"); openPerson(st.person.name); } catch (e) { toast(e.message); } };
+}
+
+// Data hints shown above each criterion
+function hintFor(keys) {
+  const p = st.person, out = [];
+  for (const key of keys) {
+    if (key.startsWith("kpi")) { const k = p.kpis.find((x) => x.no === +key.slice(3)); if (k) out.push(`<b>${esc(k.name)}:</b> ${k.score ?? "?"}/5, ${esc(k.remarks)}`); }
+    else if (key === "hr") out.push(p.hr ? `<b>HR:</b> ${p.hr.absent} absent, ${p.hr.late} late, ${p.hr.da} disciplinary` : "<b>HR:</b> no data yet");
+    else {
+      const type = key === "praise" ? "Praise" : key === "coaching" ? "Coaching" : key === "callout" ? "Incident" : null;
+      const logs = (p.logs || []).filter((l) => (type ? l.type === type : l.tags.includes(key.slice(1)))).slice(0, 3);
+      const label = type ? (type === "Incident" ? "Call outs" : type === "Praise" ? "Wins" : "Coaching") : `Logs tagged ${key}`;
+      out.push(`<b>${label}:</b> ${logs.length ? logs.map((l) => esc(l.note)).join(" · ") : "none logged"}`);
+    }
+  }
+  return out.join("<br>");
+}
+function paneEval(kind) {
+  const list = kind === "sup" ? SUP : CHAR, d = st.draft[kind], prev = st.person.prev?.[kind];
+  $("#pane").innerHTML = `
+    <p class="muted" style="margin-top:0">Answer from what you saw first hand this month. The suggested score is the average of your answers; you can still change the final score.</p>
+    ${list.map((c, i) => {
+      const sug = avg(d[i].answers.filter(Boolean));
+      return `<div class="crit" data-i="${i}">
+        <div class="row"><h3 style="flex:1">${String.fromCharCode(65 + i)}. ${c.name}</h3>${prev?.[i] ? `<span class="chip">Last month ${prev[i]}</span>` : ""}</div>
+        <div class="desc">${c.desc}</div>
+        <div class="hint">${hintFor(c.hint)}</div>
+        ${c.qs.map((q, qi) => `<div class="q"><div class="qt">${q}</div><div class="scale">${SCALE.map(([v, l]) => `<label><input type="radio" name="q${i}_${qi}" value="${v}" ${d[i].answers[qi] === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</div></div>`).join("")}
+        <div class="result">
+          <span class="muted">Suggested</span><span class="score ${cls(sug ? Math.round(sug) : null)}" id="sug${i}">${sug ? Math.round(sug) : "·"}</span>
+          <span class="muted">Final</span><select id="fin${i}">${[["", "·"], ...[5, 4, 3, 2, 1].map((n) => [n, `${n} ${SCORE_LABEL[n]}`])].map(([v, l]) => `<option value="${v}" ${String(d[i].score ?? "") === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <input type="text" id="note${i}" placeholder="Note or example (optional)" value="${esc(d[i].note)}" style="flex:1;min-width:200px">
+        </div></div>`;
+    }).join("")}
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><span class="muted" id="evalState"></span><button class="btn primary" id="saveEval">Save ${kind === "sup" ? "Supervisor" : "Character"} evaluation</button></div>`;
+  document.querySelectorAll(`#pane input[type=radio]`).forEach((r) => (r.onchange = () => {
+    const [i, qi] = r.name.slice(1).split("_").map(Number);
+    d[i].answers[qi] = +r.value;
+    const sug = Math.round(avg(d[i].answers.filter(Boolean)));
+    const s = $("#sug" + i); s.textContent = sug; s.className = "score " + cls(sug);
+    if (d[i].answers.filter(Boolean).length === list[i].qs.length && !d[i].manual) { d[i].score = sug; $("#fin" + i).value = sug; }
+  }));
+  list.forEach((_, i) => {
+    $("#fin" + i).onchange = (e) => { d[i].score = e.target.value ? +e.target.value : null; d[i].manual = true; };
+    $("#note" + i).oninput = (e) => (d[i].note = e.target.value);
+  });
+  $("#saveEval").onclick = async () => {
+    const scores = d.map((x) => x.score);
+    if (scores.some((x) => !x)) { $("#evalState").textContent = `Set a final score for all ${list.length} criteria first. `; return; }
+    try {
+      await api("rate", { name: st.person.name, kind, scores, notes: JSON.stringify(d.map((x) => ({ answers: x.answers, note: x.note }))) });
+      st.person[kind] = scores; toast("Evaluation saved"); renderPerson();
+    } catch (e) { toast(e.message); }
+  };
+}
+
+function paneLogs() {
+  const logs = st.person.logs || [];
+  const name = (t) => (t === "Incident" ? "Call out" : t === "Praise" ? "Win" : t);
+  $("#pane").innerHTML = `
+    <div class="card" style="margin-bottom:16px"><div class="row">
+      <select id="lt"><option value="praise">Win</option><option value="coaching">Coaching</option><option value="callout">Call out</option><option value="note">Note</option></select>
+      <input type="text" id="ln" placeholder="What happened? Add #tags like #timeliness" style="flex:1;min-width:220px">
+      <button class="btn primary" id="ladd">Add</button></div>
+      <p class="muted" style="margin:8px 0 0;font-size:13px">Logged today. For past dates, use Telegram: /log name 10/3 praise …</p></div>
+    <div class="card">${logs.length ? logs.map((l) => `<div class="log"><span class="t t-${l.type}">${name(l.type)}</span><span class="muted" style="font-size:12px">${l.date ? new Date(l.date).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "Asia/Manila" }) : ""}</span><div style="margin-top:4px">${esc(l.note)}</div>${l.tags.length ? `<div class="src">#${l.tags.join(" #")}</div>` : ""}</div>`).join("") : `<p class="muted">No wins or coaching logged for ${monthLabel(st.month)} yet.</p>`}</div>`;
+  $("#ladd").onclick = async () => {
+    const note = $("#ln").value.trim(); if (!note) return;
+    try { await api("log", { name: st.person.name, type: $("#lt").value, note }); toast("Logged"); openPerson(st.person.name); } catch (e) { toast(e.message); }
+  };
+}
+
+function panePush() {
+  $("#pane").innerHTML = `
+    <div class="card">
+      <h3 style="font-size:22px">Send to the PR form</h3>
+      <p class="muted">Writes Rating, Remarks and KPI Data Basis for ${monthLabel(st.month)}, plus the Supervisor and Character scores. Formulas are never touched. Cells that already have a value are skipped unless you tick Replace.</p>
+      <div class="row"><button class="btn" id="prev">Preview</button><button class="btn primary" id="go">Push</button>
+        <label class="row" style="gap:6px"><input type="checkbox" id="force"> Replace existing values</label></div>
+      <pre class="out" id="out" style="margin-top:14px">Run a preview first.</pre></div>`;
+  const run = async (go) => {
+    $("#out").textContent = go ? "Pushing…" : "Checking the PR form…";
+    try { const r = await api("push", { name: st.person.name, go, force: $("#force").checked }); $("#out").textContent = r.message; if (go) toast("Done"); }
+    catch (e) { $("#out").textContent = e.message; }
+  };
+  $("#prev").onclick = () => run(false);
+  $("#go").onclick = () => { if (confirm(`Write ${st.person.name}'s ${monthLabel(st.month)} review to the PR form?`)) run(true); };
+}
+
+// ---------- Start ----------
+st.key = store.get("dashKey");
+st.month = store.get("dashMonth") || months()[1];
+st.key ? loadTeam() : renderLogin();
+</script>
+</body>
+</html>

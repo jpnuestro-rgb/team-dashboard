@@ -101,6 +101,10 @@ tbody tr td:last-child{border-radius:0 14px 14px 0}
 .src{font-size:12px;color:var(--muted)}
 a{color:var(--accent)}
 .chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.chip.pace{background:var(--accent-soft);color:var(--accent)}
+tr.grp td{background:none;padding:18px 8px 6px;font-size:13px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line);cursor:default}
+tr.grp td span{font-weight:400;color:var(--muted);margin-left:10px}
+.pnav{display:flex;gap:6px}
 .muted{color:var(--muted)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -108,6 +112,9 @@ a{color:var(--accent)}
 .stat{background:var(--surface2);border-radius:18px;padding:12px 18px;min-width:120px}
 .stat .label{color:var(--muted);font-size:12.5px}
 .stat .val{font-size:26px;font-weight:500}
+.dpanel .stat{min-width:0;padding:10px 14px}
+.dpanel .stat .val{font-size:22px}
+.dpanel .phead h2{font-size:24px!important}
 .tabs{display:flex;gap:4px;background:var(--surface);border-radius:999px;padding:5px;margin:18px 0;overflow-x:auto;width:max-content;max-width:100%}
 .tab{border:none;background:none;border-radius:999px;padding:9px 18px;cursor:pointer;color:#55555d;white-space:nowrap}
 .tab.active{background:var(--accent);color:#fff}
@@ -140,6 +147,21 @@ pre.out{white-space:pre-wrap;background:var(--surface2);border-radius:16px;paddi
 .sync{visibility:hidden;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;margin-right:12px}
 .sync:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent,#157a4c);animation:pulse 1s ease-in-out infinite alternate}
 @keyframes pulse{from{opacity:.25}to{opacity:1}}
+.drawer{position:fixed;inset:0;z-index:40;display:none}
+.drawer.open{display:block}
+.dback{position:absolute;inset:0;background:rgba(20,20,24,.28);animation:fade .18s ease}
+.dpanel{position:absolute;top:0;right:0;bottom:0;width:min(820px,100%);background:var(--frame);box-shadow:-12px 0 40px rgba(0,0,0,.12);overflow-y:auto;padding:20px 22px 48px;animation:slide .22s ease}
+@keyframes slide{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+body.locked{overflow:hidden}
+tr.sel td{background:var(--accent-soft)}
+.mewrap{position:relative}
+.me{border:0;cursor:pointer;font:inherit;font-weight:600}
+.menu{position:absolute;right:0;top:50px;background:var(--surface);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;min-width:150px;z-index:50;display:none}
+.menu.open{display:block}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:10px;font:inherit;cursor:pointer;color:var(--ink)}
+.menu button:hover{background:var(--surface2)}
+@media (max-width:700px){.dpanel{padding:12px 12px 40px;box-shadow:none}}
 .edit{display:grid;grid-template-columns:90px 1fr;gap:8px;margin-top:10px}
 .edit input,.edit select{width:100%}
 @media (max-width:980px){ .c3,.c4,.c5,.c6,.c7,.c8{grid-column:span 12} }
@@ -267,38 +289,69 @@ function shell(inner, opts = {}) {
       <div class="logo"><i>h</i>hiessēnce</div>
       <div class="nav">${nav.map(([k, l]) => `<button data-nav="${k}" class="${(st.person ? (k === "overview" ? "" : st.tab === k || (k === "sup" && st.tab === "char") ? "active" : "") : k === "overview" ? "active" : "")}">${l}</button>`).join("")}</div>
       <button class="iconbtn" id="refresh" title="Refresh">${ICON.refresh}</button>
-      <button class="iconbtn" id="lock" title="Lock">${ICON.lock}</button>
-      <div class="me">JP</div>
+      <div class="mewrap"><button class="me" id="me" title="Account">JP</button><div class="menu" id="menu"><button id="logout">Log out</button></div></div>
     </div>
     <div class="hello">
       <h1>${opts.title ?? `Welcome back, <span>John Pol</span>`}</h1>
       <div class="row"><span class="sync" id="sync">Updating</span><div class="pillsel">${ICON.cal}<select id="month">${months().map((m) => `<option value="${m}" ${m === st.month ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div></div>
     </div>
     <div id="view">${inner}</div>
-  </div>`;
-  $("#month").onchange = (e) => { st.month = e.target.value; store.set("dashMonth", st.month); st.person ? openPerson(st.person.name) : loadTeam(); };
-  $("#lock").onclick = () => { store.del("dashKey"); st.key = ""; renderLogin(); };
-  $("#refresh").onclick = () => (st.person ? openPerson(st.person.name, true) : loadTeam(true));
+  </div>
+  <div class="drawer" id="drawer"><div class="dback" id="dback"></div><aside class="dpanel" role="dialog" aria-label="Team member review"><div id="pview"></div></aside></div>`;
+  $("#month").onchange = (e) => {
+    st.month = e.target.value; store.set("dashMonth", st.month);
+    const open = st.person?.name;
+    loadTeam();
+    if (open) openPerson(open);
+  };
+  $("#me").onclick = (e) => { e.stopPropagation(); $("#menu").classList.toggle("open"); };
+  $("#logout").onclick = () => { store.del("dashKey"); st.key = ""; st.person = null; document.body.classList.remove("locked"); renderLogin(); };
+  $("#refresh").onclick = () => { loadTeam(true); if (st.person) openPerson(st.person.name, true); };
+  $("#dback").onclick = closePerson;
   document.querySelectorAll("[data-nav]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.nav;
-    if (k === "overview") return loadTeam();
-    if (st.person) { st.tab = k; renderPerson(); } else toast("Pick a team member first");
+    if (k === "overview") return closePerson();
+    if (st.person?.kpis) { st.tab = k; renderPerson(); } else toast("Pick a team member first");
   }));
+}
+document.addEventListener("click", () => $("#menu")?.classList.remove("open"));
+document.addEventListener("keydown", (e) => {
+  if (!st.person) return;
+  if (e.key === "Escape") closePerson();
+  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+  if (!typing && e.key === "ArrowRight") stepPerson(1);
+  if (!typing && e.key === "ArrowLeft") stepPerson(-1);
+});
+function navActive() {
+  document.querySelectorAll("[data-nav]").forEach((b) => b.classList.toggle("active",
+    st.person ? b.dataset.nav === st.tab || (b.dataset.nav === "sup" && st.tab === "char") : b.dataset.nav === "overview"));
+}
+// Move to the previous or next member without closing the panel
+function stepPerson(dir) {
+  const list = st.order || [], i = list.indexOf(st.person?.name);
+  if (i < 0 || !list.length) return;
+  openPerson(list[(i + dir + list.length) % list.length]);
+  $(".dpanel").scrollTop = 0;
+}
+function closePerson() {
+  st.person = null;
+  $("#drawer")?.classList.remove("open");
+  document.body.classList.remove("locked");
+  document.querySelectorAll("tr.sel").forEach((r) => r.classList.remove("sel"));
+  navActive();
 }
 
 // ---------- Team overview ----------
 async function loadTeam(fresh = false) {
-  st.person = null;
   const month = st.month, hit = !fresh && cache.get("team");
-  if (hit) { st.team = hit.v; shell(""); renderTeam(); }
-  else shell(`<div class="loading">Loading ${monthLabel(month)}…</div>`);
+  if (!$("#view")) shell("");
+  if (hit) { st.team = hit.v; renderTeam(); }
+  else $("#view").innerHTML = `<div class="loading">Loading ${monthLabel(month)}…</div>`;
   syncing(true);
   try {
     const team = await api("team");
     cache.put("team", "", team);
-    // Only redraw if you are still on this overview
-    if (!st.person && st.month === month) { st.team = team; renderTeam(); }
-    if (!st.person && st.month === month) prefetch(team);
+    if (st.month === month) { st.team = team; renderTeam(); prefetch(team); }
   } catch (e) {
     if (!hit && st.key) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`;
     else if (st.key) toast("Could not refresh: " + e.message);
@@ -316,8 +369,18 @@ async function prefetch(team) {
 }
 const split = (n, d = 1) => { if (n == null) return `<span>·</span>`; const [a, b] = Number(n).toFixed(d).split("."); return b ? `${a}<span>.${b}</span>` : a; };
 const first = (n) => n.split(" ")[0].replace(/"/g, "");
+const isEditor = (p) => /editor/i.test(p.role || "");
 function renderTeam() {
-  const ppl = st.team.people.filter((p) => !p.error);
+  // Strategists first, then editors: they have different targets
+  const ppl = st.team.people.filter((p) => !p.error).sort((a, b) => isEditor(a) - isEditor(b));
+  st.order = ppl.map((p) => p.name);
+  const groups = [["Strategists", ppl.filter((p) => !isEditor(p))], ["Video editors", ppl.filter(isEditor)]].filter(([, g]) => g.length);
+  const row = (p) => `<tr data-name="${esc(p.name)}">
+        <td><div class="who"><div class="avatar">${initials(p.name)}</div><div><div class="name">${esc(p.name)}</div><div class="role">${esc(p.role)}</div></div></div></td>
+        <td class="hide-sm"><div class="minis">${p.kpis.map((k) => `<div class="mini ${cls(k.score)}" title="${esc(k.name)}: ${k.score ?? "no score"}${k.pace ? " (on pace)" : ""}"></div>`).join("")}</div></td>
+        <td><b>${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</b></td>
+        <td class="hide-sm">${p.hr ? `<span class="badge soft">In</span>` : `<span class="badge warn">Missing</span>`}</td>
+        <td>${status(p)}</td></tr>`;
   const n = ppl.length || 1;
   const done = ppl.filter((p) => p.sup?.length && p.char?.length).length;
   const pushed = ppl.filter((p) => p.status === "Pushed").length;
@@ -360,21 +423,18 @@ function renderTeam() {
     <div class="c8 card">
       <div class="ctitle"><div><h3>Team</h3><p>Tap a member to review</p></div></div>
       <table><thead><tr><th>Name</th><th class="hide-sm">KPIs</th><th>Avg</th><th class="hide-sm">HR</th><th>Status</th></tr></thead>
-      <tbody>${ppl.map((p) => `<tr data-name="${esc(p.name)}">
-        <td><div class="who"><div class="avatar">${initials(p.name)}</div><div><div class="name">${esc(p.name)}</div><div class="role">${esc(p.role)}</div></div></div></td>
-        <td class="hide-sm"><div class="minis">${p.kpis.map((k) => `<div class="mini ${cls(k.score)}" title="${esc(k.name)}: ${k.score ?? "no score"}"></div>`).join("")}</div></td>
-        <td><b>${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</b></td>
-        <td class="hide-sm">${p.hr ? `<span class="badge soft">In</span>` : `<span class="badge warn">Missing</span>`}</td>
-        <td>${status(p)}</td></tr>`).join("")}</tbody></table>
+      <tbody>${groups.map(([label, g]) => { const ga = avg(g.map((p) => p.kpiAvg).filter((x) => x != null));
+        return `<tr class="grp"><td colspan="5">${label}<span>${g.length} ${g.length === 1 ? "member" : "members"} · avg ${ga == null ? "no data" : fmt(ga)}</span></td></tr>` + g.map(row).join(""); }).join("")}</tbody></table>
     </div>
     <div class="c4 card">
       <div class="ctitle"><div><h3>Needs attention</h3><p>KPIs at 2 or below</p></div></div>
-      ${attention.length ? attention.map(({ p, k }) => `<div class="attn" data-name="${esc(p.name)}" style="cursor:pointer"><span class="score ${cls(k.score)}">${k.score}</span><div><div class="name" style="font-size:14px">${esc(first(p.name))} · ${esc(k.name)}</div><div class="src">${esc(k.remarks)}</div></div></div>`).join("") : `<p class="muted">Nothing below 3 this month.</p>`}
+      ${attention.length ? attention.map(({ p, k }) => `<div class="attn" data-name="${esc(p.name)}" style="cursor:pointer"><span class="score ${cls(k.score)}">${k.score}</span><div><div class="name" style="font-size:14px">${esc(first(p.name))} · ${esc(k.name)}</div><div class="src">${k.pace ? "On pace: " : ""}${esc(k.remarks)}</div></div></div>`).join("") : `<p class="muted">Nothing below 3 this month.</p>`}
       <div class="attn" style="display:block"><div class="name" style="font-size:14px">No HR data yet</div>
         <div class="faces">${ppl.filter((p) => !p.hr).slice(0, 6).map((p) => `<div class="avatar" title="${esc(p.name)}">${initials(p.name)}</div>`).join("") || `<span class="muted" style="font-size:13px">Everyone is in.</span>`}</div></div>
     </div>
   </div>`;
   document.querySelectorAll("[data-name]").forEach((c) => (c.onclick = () => openPerson(c.dataset.name)));
+  if (st.person) document.querySelectorAll(`tr[data-name="${CSS.escape(st.person.name)}"]`).forEach((r) => r.classList.add("sel"));
 }
 
 // ---------- Person ----------
@@ -387,8 +447,14 @@ async function openPerson(name, fresh = false) {
     st.draft = { sup: initDraft(SUP, p.sup, notes.sup), char: initDraft(CHAR, p.char, notes.char) };
     renderPerson();
   };
-  shell(hit ? "" : `<div class="loading">Loading ${esc(name)}…</div>`, { title: `Review, <span>${esc(first(name))}</span>` });
+  if (!$("#view")) shell("");
+  // Open the side panel over the team overview
+  $("#drawer").classList.add("open");
+  document.body.classList.add("locked");
+  document.querySelectorAll("tr.sel").forEach((r) => r.classList.remove("sel"));
+  document.querySelectorAll(`tr[data-name="${CSS.escape(name)}"]`).forEach((r) => r.classList.add("sel"));
   if (hit) show(hit.v);
+  else $("#pview").innerHTML = `<div class="loading">Loading ${esc(name)}…</div>`;
   // Fresh copy in the background; skip it if the cached one is under a minute old
   if (hit && Date.now() - hit.at < 60e3) return;
   syncing(true);
@@ -399,8 +465,8 @@ async function openPerson(name, fresh = false) {
     const busy = document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) && document.activeElement.id !== "month";
     if (st.person?.name === name && st.month === month && !(hit && busy)) show(p);
   } catch (e) {
-    if (!hit) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`;
-    else toast("Could not refresh: " + e.message);
+    if (!hit && st.person?.name === name) $("#pview").innerHTML = `<div class="loading">${esc(e.message)}</div>`;
+    else if (hit) toast("Could not refresh: " + e.message);
   } finally { syncing(false); }
 }
 function initDraft(list, saved, notes) {
@@ -408,10 +474,12 @@ function initDraft(list, saved, notes) {
 }
 function renderPerson() {
   const p = st.person, o = overall(p);
-  $("#view").innerHTML = `
+  $("#pview").innerHTML = `
     <div class="card">
       <div class="phead">
-        <button class="go" id="back" title="Back to team"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="pnav"><button class="go" id="back" title="Close (Esc)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          <button class="go" id="prevp" title="Previous member (left arrow)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <button class="go" id="nextp" title="Next member (right arrow)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></button></div>
         <div class="avatar">${initials(p.name)}</div>
         <div style="flex:1;min-width:180px"><h2 style="font-size:28px">${esc(p.name)}</h2><div class="role">${esc(p.role)} · ${monthLabel(p.month)}</div></div>
         <div class="stat"><div class="label">KPI average</div><div class="val">${p.kpiAvg == null ? "·" : fmt(p.kpiAvg)}</div></div>
@@ -421,9 +489,11 @@ function renderPerson() {
     </div>
     <div class="tabs">${[["kpi", "KPI"], ["sup", "Supervisor"], ["char", "Character"], ["logs", "Wins & coaching"], ["push", "PR form"]].map(([k, l]) => `<button class="tab ${st.tab === k ? "active" : ""}" data-t="${k}">${l}</button>`).join("")}</div>
     <div id="pane"></div>`;
-  $("#back").onclick = loadTeam;
+  $("#back").onclick = closePerson;
+  $("#prevp").onclick = () => stepPerson(-1);
+  $("#nextp").onclick = () => stepPerson(1);
   document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { st.tab = b.dataset.t; renderPerson(); }));
-  document.querySelectorAll("[data-nav]").forEach((b) => b.classList.toggle("active", b.dataset.nav === st.tab || (b.dataset.nav === "sup" && st.tab === "char")));
+  navActive();
   ({ kpi: paneKpi, sup: () => paneEval("sup"), char: () => paneEval("char"), logs: paneLogs, push: panePush })[st.tab]();
 }
 
@@ -434,7 +504,7 @@ function paneKpi() {
     ${p.kpis.map((k) => `<div class="krow">
       <span class="score ${cls(k.score)}">${k.score ?? "?"}</span>
       <div style="flex:1;min-width:0">
-        <div class="row" style="gap:8px"><b>${k.no}. ${esc(k.name)}</b><span class="chip">${k.source}</span></div>
+        <div class="row" style="gap:8px"><b>${k.no}. ${esc(k.name)}</b><span class="chip">${k.source}</span>${k.pace ? `<span class="chip pace" title="The month is not over yet. Scored on where this is heading by month end.">On pace</span>` : ""}</div>
         <div style="margin-top:2px">${esc(k.remarks)}</div>
         <div class="src">${k.basisLink ? `<a href="${esc(k.basisLink)}" target="_blank" rel="noopener">${esc(k.basis || "Source")}</a>` : esc(k.basis)}</div>
         <div id="ed${k.no}"></div></div>

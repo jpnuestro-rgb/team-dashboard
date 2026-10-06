@@ -91,6 +91,12 @@ tbody tr td:last-child{border-radius:0 14px 14px 0}
 .dot.ok:before{background:#35c37a}.dot.warn:before{background:var(--s2)}
 .attn{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:var(--surface2);margin-bottom:10px}
 .faces{display:flex;margin-top:6px}
+.prlist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.prli{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer;font-size:13.5px}
+.prli .avatar{width:26px;height:26px;font-size:11px}
+.prli .nm{flex:1}
+.prli .st{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.prli .st.full{background:var(--accent-soft);color:var(--accent)} .prli .st.part{background:#fbf0dc;color:#9a6a12}
 .faces .avatar{border:3px solid var(--surface2);margin-left:-8px}
 .faces .avatar:first-child{margin-left:0}
 .score{width:34px;height:30px;border-radius:10px;display:inline-grid;place-items:center;color:#fff;font-weight:600;background:var(--none);flex:none}
@@ -419,7 +425,7 @@ function renderTeam() {
   const best = Math.max(...ppl.map((p) => p.kpiAvg ?? 0));
   // KPIs scoring 2 or below, worst first
   const attention = ppl.flatMap((p) => p.kpis.filter((k) => k.score != null && k.score <= 2).map((k) => ({ p, k }))).sort((a, b) => a.k.score - b.k.score).slice(0, 4);
-  const status = (p) => prState(p) === "full" ? `<span class="dot ok">In PR form</span>` : prState(p) === "part" ? `<span class="dot warn">Partly in PR form</span>` : p.status === "Pushed" ? `<span class="dot ok">Pushed</span>` : p.sup.length && p.char.length ? `<span class="dot ok">Ready to push</span>` : p.sup.length || p.char.length ? `<span class="dot warn">In progress</span>` : `<span class="dot">Not started</span>`;
+  const status = (p) => prState(p) === "full" ? `<span class="dot ok">In PR form${p.pushedAt ? ` · ${new Date(p.pushedAt).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "Asia/Manila" })}` : ""}</span>` : prState(p) === "part" ? `<span class="dot warn">Partly in PR form</span>` : p.status === "Pushed" ? `<span class="dot ok">Pushed</span>` : p.sup.length && p.char.length ? `<span class="dot ok">Ready to push</span>` : p.sup.length || p.char.length ? `<span class="dot warn">In progress</span>` : `<span class="dot">Not started</span>`;
   $("#view").innerHTML = `
   <div class="dash">
     <div class="c3 stack">
@@ -448,6 +454,9 @@ function renderTeam() {
       <div class="num-lg">${Math.round(((done + hr + pushed) / (3 * n)) * 100)}<span>%</span></div>
       ${[["Evaluations done", done], ["HR data in", hr], ["Complete in PR form", pushed]].map(([l, v]) => `
         <div class="prog"><div class="top"><span>${l}</span><span class="muted">${v}/${n}</span></div><div class="track"><div class="fill" style="width:${(v / n) * 100}%"></div></div></div>`).join("")}
+      <div class="prlist">
+        ${ppl.map((p) => { const s = prState(p); return `<div class="prli" data-name="${esc(p.name)}"><span class="avatar">${initials(p.name)}</span><span class="nm">${esc(first(p.name))}</span><span class="st ${s}">${s === "full" ? `✓ In PR form${p.pushedAt ? ` · ${new Date(p.pushedAt).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "Asia/Manila" })}` : ""}` : s === "part" ? "Partly" : "Not yet"}</span></div>`; }).join("")}
+      </div>
     </div>
     <div class="c8 card">
       <div class="ctitle"><div><h3>Team</h3><p>Tap a member to review</p></div></div>

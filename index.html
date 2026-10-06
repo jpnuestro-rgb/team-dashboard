@@ -412,14 +412,14 @@ function renderTeam() {
         <td>${status(p)}</td></tr>`;
   const n = ppl.length || 1;
   const done = ppl.filter((p) => p.sup?.length && p.char?.length).length;
-  const pushed = ppl.filter((p) => p.status === "Pushed").length;
+  const pushed = ppl.filter((p) => prState(p) === "full").length;
   const hr = ppl.filter((p) => p.hr).length;
   const teamAvg = avg(ppl.map((p) => p.kpiAvg).filter((x) => x != null));
   const wins = ppl.reduce((a, p) => a + p.logCounts.praise, 0), coach = ppl.reduce((a, p) => a + p.logCounts.coaching, 0);
   const best = Math.max(...ppl.map((p) => p.kpiAvg ?? 0));
   // KPIs scoring 2 or below, worst first
   const attention = ppl.flatMap((p) => p.kpis.filter((k) => k.score != null && k.score <= 2).map((k) => ({ p, k }))).sort((a, b) => a.k.score - b.k.score).slice(0, 4);
-  const status = (p) => p.status === "Pushed" ? `<span class="dot ok">Pushed</span>` : p.sup.length && p.char.length ? `<span class="dot ok">Ready to push</span>` : p.sup.length || p.char.length ? `<span class="dot warn">In progress</span>` : `<span class="dot">Not started</span>`;
+  const status = (p) => prState(p) === "full" ? `<span class="dot ok">In PR form</span>` : prState(p) === "part" ? `<span class="dot warn">Partly in PR form</span>` : p.status === "Pushed" ? `<span class="dot ok">Pushed</span>` : p.sup.length && p.char.length ? `<span class="dot ok">Ready to push</span>` : p.sup.length || p.char.length ? `<span class="dot warn">In progress</span>` : `<span class="dot">Not started</span>`;
   $("#view").innerHTML = `
   <div class="dash">
     <div class="c3 stack">
@@ -446,7 +446,7 @@ function renderTeam() {
     <div class="c3 card">
       <div class="ctitle"><div><h3>Review progress</h3><p>${monthLabel(st.month)}</p></div></div>
       <div class="num-lg">${Math.round(((done + hr + pushed) / (3 * n)) * 100)}<span>%</span></div>
-      ${[["Evaluations done", done], ["HR data in", hr], ["Pushed to PR form", pushed]].map(([l, v]) => `
+      ${[["Evaluations done", done], ["HR data in", hr], ["Complete in PR form", pushed]].map(([l, v]) => `
         <div class="prog"><div class="top"><span>${l}</span><span class="muted">${v}/${n}</span></div><div class="track"><div class="fill" style="width:${(v / n) * 100}%"></div></div></div>`).join("")}
     </div>
     <div class="c8 card">
@@ -499,9 +499,10 @@ async function openPerson(name, fresh = false) {
   } finally { syncing(false); }
 }
 function statusChip(p) {
-  if (p.status === "Pushed") return `<span class="pstatus ok">✓ Pushed to PR form${p.pushedAt ? ` · ${when(p.pushedAt)}` : ""}</span>`;
-  if (p.status === "Reviewed") return `<span class="pstatus warn">Partly pushed</span>`;
-  return `<span class="pstatus">Not pushed yet</span>`;
+  const s = prState(p);
+  if (s === "full") return `<span class="pstatus ok" title="${esc(prDetail(p))}">✓ In PR form${p.pushedAt ? ` · ${when(p.pushedAt)}` : ""}</span>`;
+  if (s === "part") return `<span class="pstatus warn" title="${esc(prDetail(p))}">Partly in PR form</span>`;
+  return `<span class="pstatus">Not in PR form yet</span>`;
 }
 function initDraft(list, saved, notes) {
   return list.map((c, i) => ({ answers: notes?.[i]?.answers ?? [], note: notes?.[i]?.note ?? "", score: saved?.[i] ?? null }));
@@ -671,8 +672,13 @@ function panePush() {
         toast(r.data?.failed?.length ? "Pushed with some cells skipped" : "Pushed to the PR form");
         if (r.data?.items?.some((i) => i.state === "written")) {
           st.person.status = r.data.failed?.length ? "Reviewed" : "Pushed"; st.person.pushedAt = Date.now();
-          const note = document.querySelector(".pdone"); if (note) note.outerHTML = pushedNote(st.person);
-          const chip = document.querySelector(".pstatus"); if (chip) chip.outerHTML = statusChip(st.person);
+          // Re-read what is now on the PR form so the status is exact
+          api("person", { name: st.person.name }).then((p) => {
+            if (st.person?.name !== p.name) return;
+            Object.assign(st.person, { inPr: p.inPr, status: p.status, pushedAt: p.pushedAt });
+            const note = document.querySelector(".pdone"); if (note) note.outerHTML = pushedNote(st.person);
+            const chip = document.querySelector(".pstatus"); if (chip) chip.outerHTML = statusChip(st.person);
+          }).catch(() => {});
         }
       }
     } catch (e) { $("#out").innerHTML = `<div class="card pempty" style="color:var(--s1)">${esc(e.message)}</div>`; }
@@ -684,10 +690,19 @@ function panePush() {
 
 const when = (t) => new Date(t).toLocaleString("en", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
 // Shows if and when this month was already written to the PR form
+// How much of this month is already on the PR form: 7 KPI ratings plus Supervisor and Character
+function prState(p) {
+  const i = p.inPr;
+  if (!i) return p.status === "Pushed" ? "full" : p.status === "Reviewed" ? "part" : "none";
+  const done = i.kpi + (i.sup ? 1 : 0) + (i.chr ? 1 : 0);
+  return done >= 9 ? "full" : done > 0 ? "part" : "none";
+}
+const prDetail = (p) => p.inPr ? `KPI ratings ${p.inPr.kpi} of 7 · Supervisor ${p.inPr.sup ? "✓" : "not yet"} · Character ${p.inPr.chr ? "✓" : "not yet"}` : "";
 function pushedNote(p) {
-  if (p.status === "Pushed") return `<div class="pdone"><b>✓ Already in the PR form</b>${p.pushedAt ? `Pushed ${when(p.pushedAt)}. ` : ""}Pushing again only fills empty cells, unless you tick Replace.</div>`;
-  if (p.status === "Reviewed") return `<div class="pdone part"><b>Partly pushed</b>${p.pushedAt ? `Last push ${when(p.pushedAt)}. ` : ""}Some cells were not written. Run a preview to see what is left.</div>`;
-  return `<div class="pdone none"><b>Not pushed yet</b>Nothing from ${monthLabel(st.month)} has been written to this PR form from the dashboard.</div>`;
+  const s = prState(p), at = p.pushedAt ? ` Last pushed ${when(p.pushedAt)}.` : "";
+  if (s === "full") return `<div class="pdone"><b>✓ Complete in the PR form</b>${prDetail(p)}.${at} Pushing again only fills empty cells, unless you tick Replace.</div>`;
+  if (s === "part") return `<div class="pdone part"><b>Partly in the PR form</b>${prDetail(p)}.${at} Run a preview to see what is still empty.</div>`;
+  return `<div class="pdone none"><b>Not in the PR form yet</b>Nothing for ${monthLabel(st.month)} is filled in on this PR form.</div>`;
 }
 
 // Preview or result of a push, grouped like the PR form tabs

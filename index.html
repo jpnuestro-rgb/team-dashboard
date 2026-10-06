@@ -750,10 +750,11 @@ const when = (t) => new Date(t).toLocaleString("en", { month: "short", day: "num
 function prState(p) {
   const i = p.inPr;
   if (!i) return p.status === "Pushed" ? "full" : p.status === "Reviewed" ? "part" : "none";
-  const done = i.kpi + (i.sup ? 1 : 0) + (i.chr ? 1 : 0);
-  return done >= 9 ? "full" : done > 0 ? "part" : "none";
+  // KPI 6 and 7 come from HR, so our part is done once KPI 1 to 5, Supervisor and Character are in
+  if (i.kpi >= 5 && i.sup && i.chr) return "full";
+  return i.kpi + (i.sup ? 1 : 0) + (i.chr ? 1 : 0) > 0 ? "part" : "none";
 }
-const prDetail = (p) => p.inPr ? `KPI ratings ${p.inPr.kpi} of 7 · Supervisor ${p.inPr.sup ? "✓" : "not yet"} · Character ${p.inPr.chr ? "✓" : "not yet"}` : "";
+const prDetail = (p) => p.inPr ? `KPI ratings ${Math.min(p.inPr.kpi, 5)} of 5 · Supervisor ${p.inPr.sup ? "✓" : "not yet"} · Character ${p.inPr.chr ? "✓" : "not yet"} · KPI 6 and 7 ${p.inPr.kpi >= 7 ? "✓" : "waiting on HR"}` : "";
 function pushedNote(p) {
   const s = prState(p), at = p.pushedAt ? ` Last pushed ${when(p.pushedAt)}.` : "";
   if (s === "full") return `<div class="pdone"><b>✓ Complete in the PR form</b>${prDetail(p)}.${at} Pushing again only fills empty cells, unless you tick Replace.</div>`;

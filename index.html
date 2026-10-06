@@ -103,6 +103,26 @@ a{color:var(--accent)}
 .chip{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted)}
 .chip.pace{background:var(--accent-soft);color:var(--accent)}
 .chip.low{background:#fbf0dc;color:#9a6a12}
+.pempty{color:var(--muted);text-align:center;padding:28px 18px}
+#out{margin-top:14px}
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.pstat{background:var(--surface);border-radius:18px;padding:16px 18px}
+.pstat b{display:block;font-size:30px;font-weight:500;line-height:1.1}
+.pstat span{color:var(--muted);font-size:13px}
+.pstat.ok b{color:var(--accent)} .pstat.warn b{color:#c2700f}
+.pwarn{background:#fbf0dc;color:#7a5410;margin-bottom:14px} .pwarn b{display:block;margin-bottom:6px} .pwarn div{font-size:14px;padding:2px 0}
+.pgroup{margin-bottom:14px}
+.prow{display:grid;grid-template-columns:minmax(120px,190px) 1fr auto;gap:14px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.prow:first-of-type{border-top:0}
+.pl{font-weight:500;font-size:14px}
+.pv{font-size:14px;word-break:break-word}
+.pold{color:var(--muted);font-size:12.5px;margin-top:4px;text-decoration:line-through}
+.ppill{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.ppill.ok{background:var(--accent-soft);color:var(--accent)} .ppill.warn{background:#fbf0dc;color:#9a6a12} .ppill.bad{background:#fbe3e0;color:#b23a2e}
+.pkept{display:none;margin-top:6px} .pgroup.showkept .pkept{display:block}
+.pkept-toggle .hide{display:none} .pgroup.showkept .pkept-toggle .hide{display:inline} .pgroup.showkept .pkept-toggle .show{display:none}
+.btn.ghost{background:none;border:1px solid var(--line);margin-top:10px;font-size:13px;padding:8px 14px}
+@media (max-width:700px){.prow{grid-template-columns:1fr auto}.prow .pv{grid-column:1/-1;grid-row:2}.pstat b{font-size:24px}}
 tr.grp td{background:none;padding:18px 8px 6px;font-size:13px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line);cursor:default}
 tr.grp td span{font-weight:400;color:var(--muted);margin-left:10px}
 .pnav{display:flex;gap:6px}
@@ -627,14 +647,51 @@ function panePush() {
       <p class="muted">Writes Rating, Remarks and KPI Data Basis for ${monthLabel(st.month)}, plus the Supervisor and Character scores. Formulas are never touched. Cells that already have a value are skipped unless you tick Replace.</p>
       <div class="row"><button class="btn" id="prev">Preview</button><button class="btn primary" id="go">Push</button>
         <label class="row" style="gap:6px"><input type="checkbox" id="force"> Replace existing values</label></div>
-      <pre class="out" id="out" style="margin-top:14px">Run a preview first.</pre></div>`;
+      </div>
+    <div id="out"><div class="card pempty">Tap <b>Preview</b> to see exactly what will be written before anything changes.</div></div>`;
   const run = async (go) => {
-    $("#out").textContent = go ? "Pushing…" : "Checking the PR form…";
-    try { const r = await api("push", { name: st.person.name, go, force: $("#force").checked }); $("#out").textContent = r.message; if (go) toast("Done"); }
-    catch (e) { $("#out").textContent = e.message; }
+    $("#out").innerHTML = `<div class="card pempty"><span class="sync" style="visibility:visible">${go ? "Writing to the PR form" : "Checking the PR form"}</span></div>`;
+    $("#prev").disabled = $("#go").disabled = true;
+    try {
+      const r = await api("push", { name: st.person.name, go, force: $("#force").checked });
+      $("#out").innerHTML = r.data ? pushView(r.data) : `<div class="card pempty">${esc(r.message)}</div>`;
+      document.querySelectorAll(".pkept-toggle").forEach((b) => (b.onclick = () => b.closest(".pgroup").classList.toggle("showkept")));
+      if (go) toast(r.data?.failed?.length ? "Pushed with some cells skipped" : "Pushed to the PR form");
+    } catch (e) { $("#out").innerHTML = `<div class="card pempty" style="color:var(--s1)">${esc(e.message)}</div>`; }
+    finally { $("#prev").disabled = $("#go").disabled = false; }
   };
   $("#prev").onclick = () => run(false);
   $("#go").onclick = () => { if (confirm(`Write ${st.person.name}'s ${monthLabel(st.month)} review to the PR form?`)) run(true); };
+}
+
+// Preview or result of a push, grouped like the PR form tabs
+function pushView(d) {
+  const groups = [["KPI Scorecard", (g) => /^KPI/.test(g)], ["Supervisor Evaluation", (g) => g === "Supervisor"], ["Character Evaluation", (g) => g === "Character"]];
+  const n = (st8) => d.items.filter((i) => st8.includes(i.state)).length;
+  const toWrite = n(["write", "replace", "written"]), kept = n(["keep"]), failed = n(["failed"]);
+  const pill = { write: ["New", "ok"], replace: ["Replace", "warn"], written: ["Written", "ok"], failed: ["Not written", "bad"], keep: ["Kept", ""] };
+  const fieldName = (i) => (/^KPI/.test(i.group) ? `${i.group} · ${i.field.replace(/^./, (c) => c.toUpperCase())}` : i.field);
+  const row = (i) => `<div class="prow ${i.state}">
+      <div class="pl">${esc(fieldName(i))}</div>
+      <div class="pv">${i.state === "keep" ? `<span class="muted">${esc(i.old)}</span>` : `${esc(i.value)}${i.old ? `<div class="pold">Was: ${esc(i.old)}</div>` : ""}`}</div>
+      <span class="ppill ${pill[i.state][1]}">${pill[i.state][0]}</span></div>`;
+  return `
+    <div class="pstats">
+      <div class="pstat ok"><b>${toWrite}</b><span>${d.go ? "written" : "to write"}</span></div>
+      <div class="pstat"><b>${kept}</b><span>already filled, kept</span></div>
+      <div class="pstat ${d.missing.length || failed ? "warn" : ""}"><b>${d.missing.length + failed}</b><span>${failed ? "not written" : "need attention"}</span></div>
+    </div>
+    ${d.missing.length || (d.failed || []).length ? `<div class="card pwarn"><b>Needs attention</b>${[...d.missing, ...(d.failed || [])].map((m) => `<div>${esc(m)}</div>`).join("")}</div>` : ""}
+    ${groups.map(([label, test]) => {
+      const items = d.items.filter((i) => test(i.group));
+      if (!items.length) return "";
+      const active = items.filter((i) => i.state !== "keep"), keep = items.filter((i) => i.state === "keep");
+      return `<div class="card pgroup">
+        <div class="ctitle"><div><h3>${label}</h3><p>${active.length ? `${active.length} ${d.go ? "written" : "to write"}` : "Nothing new"}${keep.length ? `, ${keep.length} already filled` : ""}</p></div></div>
+        ${active.map(row).join("") || `<p class="muted" style="margin:0">Everything here is already filled in.</p>`}
+        ${keep.length ? `<button class="btn ghost pkept-toggle"><span class="show">Show</span><span class="hide">Hide</span> ${keep.length} already filled</button><div class="pkept">${keep.map(row).join("")}</div>` : ""}
+      </div>`; }).join("")}
+    ${!d.go && toWrite ? `<p class="muted" style="text-align:right">Looks right? Tap <b>Push</b> to write it.</p>` : ""}`;
 }
 
 // ---------- Start ----------

@@ -137,6 +137,9 @@ pre.out{white-space:pre-wrap;background:var(--surface2);border-radius:16px;paddi
 .login{max-width:400px;margin:14vh auto;text-align:center;padding:36px}
 .login input{width:100%;margin:18px 0 10px;text-align:center}
 .loading{color:var(--muted);padding:60px 0;text-align:center}
+.sync{visibility:hidden;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;margin-right:12px}
+.sync:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent,#157a4c);animation:pulse 1s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.25}to{opacity:1}}
 .edit{display:grid;grid-template-columns:90px 1fr;gap:8px;margin-top:10px}
 .edit input,.edit select{width:100%}
 @media (max-width:980px){ .c3,.c4,.c5,.c6,.c7,.c8{grid-column:span 12} }
@@ -203,7 +206,16 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
 
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2600); }
+// Last loaded data is kept in this browser so pages open instantly, then refresh in the background
+const cache = {
+  key: (kind, name = "") => `dc:${kind}:${st.month}:${name}`,
+  get(kind, name) { try { return JSON.parse(store.get(cache.key(kind, name)) || "null"); } catch { return null; } },
+  put(kind, name, v) { store.set(cache.key(kind, name), JSON.stringify({ at: Date.now(), v })); },
+  clearMonth() { try { Object.keys(localStorage).filter((k) => k.startsWith(`dc:`) && k.includes(`:${st.month}:`)).forEach((k) => localStorage.removeItem(k)); } catch {} },
+};
+function syncing(on) { const el = $("#sync"); if (el) el.style.visibility = on ? "visible" : "hidden"; }
 async function api(action, body = {}) {
+  if (!["team", "person"].includes(action)) cache.clearMonth();
   const r = await fetch(API + action, { method: "POST", headers: { "content-type": "application/json", "x-dash-key": st.key }, body: JSON.stringify({ month: st.month, ...body }) });
   const j = await r.json().catch(() => ({ error: "Bad response" }));
   if (r.status === 401) { store.del("dashKey"); st.key = ""; renderLogin("Wrong passcode."); throw new Error("Wrong passcode"); }
@@ -260,13 +272,13 @@ function shell(inner, opts = {}) {
     </div>
     <div class="hello">
       <h1>${opts.title ?? `Welcome back, <span>John Pol</span>`}</h1>
-      <div class="pillsel">${ICON.cal}<select id="month">${months().map((m) => `<option value="${m}" ${m === st.month ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div>
+      <div class="row"><span class="sync" id="sync">Updating</span><div class="pillsel">${ICON.cal}<select id="month">${months().map((m) => `<option value="${m}" ${m === st.month ? "selected" : ""}>${monthLabel(m)}</option>`).join("")}</select></div></div>
     </div>
     <div id="view">${inner}</div>
   </div>`;
   $("#month").onchange = (e) => { st.month = e.target.value; store.set("dashMonth", st.month); st.person ? openPerson(st.person.name) : loadTeam(); };
   $("#lock").onclick = () => { store.del("dashKey"); st.key = ""; renderLogin(); };
-  $("#refresh").onclick = () => (st.person ? openPerson(st.person.name) : loadTeam());
+  $("#refresh").onclick = () => (st.person ? openPerson(st.person.name, true) : loadTeam(true));
   document.querySelectorAll("[data-nav]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.nav;
     if (k === "overview") return loadTeam();
@@ -275,11 +287,32 @@ function shell(inner, opts = {}) {
 }
 
 // ---------- Team overview ----------
-async function loadTeam() {
+async function loadTeam(fresh = false) {
   st.person = null;
-  shell(`<div class="loading">Loading ${monthLabel(st.month)}…</div>`);
-  try { st.team = await api("team"); renderTeam(); }
-  catch (e) { if (st.key) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
+  const month = st.month, hit = !fresh && cache.get("team");
+  if (hit) { st.team = hit.v; shell(""); renderTeam(); }
+  else shell(`<div class="loading">Loading ${monthLabel(month)}…</div>`);
+  syncing(true);
+  try {
+    const team = await api("team");
+    cache.put("team", "", team);
+    // Only redraw if you are still on this overview
+    if (!st.person && st.month === month) { st.team = team; renderTeam(); }
+    if (!st.person && st.month === month) prefetch(team);
+  } catch (e) {
+    if (!hit && st.key) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`;
+    else if (st.key) toast("Could not refresh: " + e.message);
+  } finally { if (st.month === month) syncing(false); }
+}
+// Load each member's page in the background, one at a time, so opening them is instant
+async function prefetch(team) {
+  const month = st.month;
+  for (const p of team.people.filter((x) => !x.error)) {
+    if (st.month !== month) return;
+    const hit = cache.get("person", p.name);
+    if (hit && Date.now() - hit.at < 10 * 60e3) continue;
+    try { cache.put("person", p.name, await api("person", { name: p.name })); } catch { return; }
+  }
 }
 const split = (n, d = 1) => { if (n == null) return `<span>·</span>`; const [a, b] = Number(n).toFixed(d).split("."); return b ? `${a}<span>.${b}</span>` : a; };
 const first = (n) => n.split(" ")[0].replace(/"/g, "");
@@ -345,15 +378,30 @@ function renderTeam() {
 }
 
 // ---------- Person ----------
-async function openPerson(name) {
+async function openPerson(name, fresh = false) {
   if (st.person?.name !== name) st.person = { name };
-  shell(`<div class="loading">Loading ${esc(name)}…</div>`, { title: `Review, <span>${esc(first(name))}</span>` });
-  try {
-    st.person = await api("person", { name });
-    let notes = {}; try { notes = JSON.parse(st.person.notes || "{}"); } catch {}
-    st.draft = { sup: initDraft(SUP, st.person.sup, notes.sup), char: initDraft(CHAR, st.person.char, notes.char) };
+  const month = st.month, hit = !fresh && cache.get("person", name);
+  const show = (p) => {
+    st.person = p;
+    let notes = {}; try { notes = JSON.parse(p.notes || "{}"); } catch {}
+    st.draft = { sup: initDraft(SUP, p.sup, notes.sup), char: initDraft(CHAR, p.char, notes.char) };
     renderPerson();
-  } catch (e) { $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
+  };
+  shell(hit ? "" : `<div class="loading">Loading ${esc(name)}…</div>`, { title: `Review, <span>${esc(first(name))}</span>` });
+  if (hit) show(hit.v);
+  // Fresh copy in the background; skip it if the cached one is under a minute old
+  if (hit && Date.now() - hit.at < 60e3) return;
+  syncing(true);
+  try {
+    const p = await api("person", { name });
+    cache.put("person", name, p);
+    // Do not redraw over a form you may be typing in
+    const busy = document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) && document.activeElement.id !== "month";
+    if (st.person?.name === name && st.month === month && !(hit && busy)) show(p);
+  } catch (e) {
+    if (!hit) $("#view").innerHTML = `<div class="loading">${esc(e.message)}</div>`;
+    else toast("Could not refresh: " + e.message);
+  } finally { syncing(false); }
 }
 function initDraft(list, saved, notes) {
   return list.map((c, i) => ({ answers: notes?.[i]?.answers ?? [], note: notes?.[i]?.note ?? "", score: saved?.[i] ?? null }));
@@ -403,7 +451,7 @@ function paneKpi() {
     </div></div>`;
   document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => editKpi(+b.dataset.edit)));
   $("#hrSave").onclick = async () => {
-    try { await api("hr", { name: p.name, absent: +$("#hrA").value || 0, late: +$("#hrL").value || 0, da: +$("#hrD").value || 0 }); toast("HR data saved"); openPerson(p.name); }
+    try { await api("hr", { name: p.name, absent: +$("#hrA").value || 0, late: +$("#hrL").value || 0, da: +$("#hrD").value || 0 }); toast("HR data saved"); openPerson(p.name, true); }
     catch (e) { toast(e.message); }
   };
 }
@@ -416,10 +464,10 @@ function editKpi(no) {
     <span></span><div class="row"><button class="btn primary" id="ksave">Save</button>${k.source === "Manual" ? `<button class="btn" id="kclear">Back to auto</button>` : ""}<button class="btn ghost" id="kcancel">Cancel</button></div></div>`;
   $("#kcancel").onclick = paneKpi;
   $("#ksave").onclick = async () => {
-    try { await api("kpi", { name: st.person.name, no, score: +$("#ks").value, remarks: $("#kr").value, basis: $("#kb").value }); toast("KPI saved"); openPerson(st.person.name); }
+    try { await api("kpi", { name: st.person.name, no, score: +$("#ks").value, remarks: $("#kr").value, basis: $("#kb").value }); toast("KPI saved"); openPerson(st.person.name, true); }
     catch (e) { toast(e.message); }
   };
-  if ($("#kclear")) $("#kclear").onclick = async () => { try { await api("kpi", { name: st.person.name, no, clear: true }); toast("Back to auto"); openPerson(st.person.name); } catch (e) { toast(e.message); } };
+  if ($("#kclear")) $("#kclear").onclick = async () => { try { await api("kpi", { name: st.person.name, no, clear: true }); toast("Back to auto"); openPerson(st.person.name, true); } catch (e) { toast(e.message); } };
 }
 
 // Data hints shown above each criterion
@@ -488,7 +536,7 @@ function paneLogs() {
     <div class="card">${logs.length ? logs.map((l) => `<div class="log"><span class="t t-${l.type}">${name(l.type)}</span><span class="muted" style="font-size:12px">${l.date ? new Date(l.date).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "Asia/Manila" }) : ""}</span><div style="margin-top:4px">${esc(l.note)}</div>${l.tags.length ? `<div class="src">#${l.tags.join(" #")}</div>` : ""}</div>`).join("") : `<p class="muted">No wins or coaching logged for ${monthLabel(st.month)} yet.</p>`}</div>`;
   $("#ladd").onclick = async () => {
     const note = $("#ln").value.trim(); if (!note) return;
-    try { await api("log", { name: st.person.name, type: $("#lt").value, note }); toast("Logged"); openPerson(st.person.name); } catch (e) { toast(e.message); }
+    try { await api("log", { name: st.person.name, type: $("#lt").value, note }); toast("Logged"); openPerson(st.person.name, true); } catch (e) { toast(e.message); }
   };
 }
 

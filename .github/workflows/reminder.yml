@@ -1,0 +1,11 @@
+# Daily check at 9am Manila. The bot only sends on the last 2 days of the month.
+name: Month end reminder
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sS --max-time 120 https://mjyzsxjfppuhvkqspjvn.supabase.co/functions/v1/lead-bot/cron/reminder
